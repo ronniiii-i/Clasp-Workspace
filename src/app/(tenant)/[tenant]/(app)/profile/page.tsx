@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -133,11 +134,16 @@ export default function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">My profile</h1>
-        <p className="text-sm text-muted-foreground">
-          Your account details. Some fields are managed by your administrator.
-        </p>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">My profile</h1>
+          <p className="text-sm text-muted-foreground">
+            Your account details. Some fields are managed by your administrator.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/account/security">Account security</Link>
+        </Button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">

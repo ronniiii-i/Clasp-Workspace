@@ -6,6 +6,7 @@ const RESERVED = new Set(["www", "api", "app", "admin", "system", "system-admin"
 
 const ROOT_ROUTES = new Set([
   "about",
+  "account",
   "contact",
   "create-workspace",
   "dashboard",
