@@ -90,6 +90,31 @@ describe("WorkspaceService endpoints", () => {
     );
   });
 
+  it("lists reassignment candidates for a module", async () => {
+    mockRequest.mockResolvedValue({ users: [] });
+
+    await WorkspaceService.listAssignees("sales", "deals");
+
+    expect(mockRequest).toHaveBeenCalledWith(
+      "/workspace/modules/sales/deals/records/assignees",
+      expect.objectContaining({ errorMessage: "Failed to load assignees" }),
+    );
+  });
+
+  it("reassigns a record through the owner endpoint", async () => {
+    mockRequest.mockResolvedValue({ id: "record-1", userId: "user-2" });
+
+    await WorkspaceService.reassignRecord("sales", "deals", "record-1", "user-2");
+
+    expect(mockRequest).toHaveBeenCalledWith(
+      "/workspace/modules/sales/deals/records/record-1/reassign",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ assignedToId: "user-2" }),
+      }),
+    );
+  });
+
   it("batches dashboard widgets", async () => {
     mockRequest.mockResolvedValue({ results: [], generatedAt: "now", scope: "TENANT" });
 

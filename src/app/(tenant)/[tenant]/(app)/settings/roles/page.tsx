@@ -32,7 +32,16 @@ import { useAuthStore } from "@/stores/auth-store";
 const API_BASE = process.env.NEXT_PUBLIC_API || "http://localhost:3030";
 const DATA_SCOPES = ["SELF", "TEAM", "DEPARTMENT"];
 
-type GrantMap = Record<string, boolean>;
+type GrantSource = "DIRECT" | "INHERITED" | "NONE";
+
+interface GrantCell {
+  granted: boolean;
+  source: GrantSource;
+  effect: "GRANT" | "REVOKE" | null;
+  inheritedFrom?: { id: string; name: string; slug: string } | null;
+}
+
+type GrantMap = Record<string, GrantCell>;
 
 interface RoleRecord {
   id: string;
@@ -42,6 +51,9 @@ interface RoleRecord {
   rank?: number;
   isSystem?: boolean;
   isTenantAdmin?: boolean;
+  parentRoleId?: string | null;
+  parentRole?: { id: string; name: string; slug: string; rank?: number } | null;
+  childRoles?: Array<{ id: string; name: string; slug: string }>;
   _count?: { users?: number };
 }
 
@@ -63,6 +75,36 @@ interface PermissionCatalog {
 
 const grantKey = (moduleKey: string, action: string) => `${moduleKey}::${action}`;
 
+function grantBadge(cell: GrantCell | undefined) {
+  if (!cell) return null;
+  if (cell.effect === "REVOKE") {
+    return (
+      <Badge variant="outline" className="text-[10px]">
+        Revoked
+      </Badge>
+    );
+  }
+  if (cell.source === "INHERITED") {
+    return (
+      <Badge
+        variant="secondary"
+        className="text-[10px]"
+        title={cell.inheritedFrom ? `Inherited from ${cell.inheritedFrom.name}` : undefined}
+      >
+        Inherited
+      </Badge>
+    );
+  }
+  if (cell.source === "DIRECT") {
+    return (
+      <Badge variant="outline" className="text-[10px]">
+        Direct
+      </Badge>
+    );
+  }
+  return null;
+}
+
 export default function RolesSettingsPage() {
   const { token } = useAuthStore();
   const { confirm } = usePrompt();
@@ -75,9 +117,16 @@ export default function RolesSettingsPage() {
   const [grantsLoading, setGrantsLoading] = useState(false);
   const [immutable, setImmutable] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
+  const [savingParent, setSavingParent] = useState(false);
 
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", dataScope: "SELF", rank: "" });
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    dataScope: "SELF",
+    rank: "",
+    parentRoleId: "",
+  });
 
   const authHeaders = useCallback(
     (json = false) => ({
@@ -130,7 +179,12 @@ export default function RolesSettingsPage() {
         const data = await res.json();
         const next: GrantMap = {};
         for (const grant of data.grants || []) {
-          next[grantKey(grant.moduleKey, grant.action)] = !!grant.granted;
+          next[grantKey(grant.moduleKey, grant.action)] = {
+            granted: !!grant.granted,
+            source: grant.source ?? (grant.granted ? "DIRECT" : "NONE"),
+            effect: grant.effect ?? (grant.granted ? "GRANT" : null),
+            inheritedFrom: grant.inheritedFrom ?? null,
+          };
         }
         setGrants(next);
         setImmutable(!!data.immutable);
@@ -164,6 +218,7 @@ export default function RolesSettingsPage() {
           description: form.description.trim() || undefined,
           dataScope: form.dataScope,
           rank: form.rank ? Number(form.rank) : undefined,
+          parentRoleId: form.parentRoleId || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -173,7 +228,7 @@ export default function RolesSettingsPage() {
         );
       }
       toast.success(`${data.role?.name ?? "Role"} created`);
-      setForm({ name: "", description: "", dataScope: "SELF", rank: "" });
+      setForm({ name: "", description: "", dataScope: "SELF", rank: "", parentRoleId: "" });
       await load();
       if (data.role?.id) setSelectedRoleId(data.role.id);
     } catch (error) {
@@ -210,18 +265,82 @@ export default function RolesSettingsPage() {
     }
   };
 
+  const changeParent = async (role: RoleRecord, parentRoleId: string) => {
+    if ((role.parentRoleId ?? "") === parentRoleId) return;
+    setSavingParent(true);
+    try {
+      const res = await fetch(`${API_BASE}/roles/${role.id}`, {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify({ parentRoleId: parentRoleId || null }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          Array.isArray(data.message) ? data.message.join(", ") : data.message || "Failed to update inheritance",
+        );
+      }
+      toast.success("Role inheritance updated");
+      await load();
+      if (selectedRoleId === role.id) await loadGrants(role.id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update inheritance");
+    } finally {
+      setSavingParent(false);
+    }
+  };
+
   const toggleGrant = (moduleKey: string, action: string, checked: boolean) => {
-    setGrants((current) => ({ ...current, [grantKey(moduleKey, action)]: checked }));
+    setGrants((current) => {
+      const key = grantKey(moduleKey, action);
+      const existing = current[key];
+      let next: GrantCell;
+
+      if (checked) {
+        next = {
+          granted: true,
+          source: "DIRECT",
+          effect: "GRANT",
+          inheritedFrom: null,
+        };
+      } else if (existing?.source === "INHERITED" || existing?.effect === "REVOKE") {
+        // Unchecking an inherited grant must persist a REVOKE so the parent
+        // grant does not silently reappear after a reload.
+        next = {
+          granted: false,
+          source: "DIRECT",
+          effect: "REVOKE",
+          inheritedFrom: null,
+        };
+      } else {
+        // Unchecking a direct grant clears it back to inherited behaviour.
+        next = {
+          granted: false,
+          source: "NONE",
+          effect: null,
+          inheritedFrom: null,
+        };
+      }
+
+      return { ...current, [key]: next };
+    });
   };
 
   const savePermissions = async () => {
     if (!selectedRoleId) return;
     setSavingPermissions(true);
     try {
-      const payload = Object.entries(grants).map(([key, granted]) => {
-        const [moduleKey, action] = key.split("::");
-        return { moduleKey, action, granted };
-      });
+      const payload = Object.entries(grants)
+        .filter(([, cell]) => cell.source === "DIRECT" && cell.effect !== null)
+        .map(([key, cell]) => {
+          const [moduleKey, action] = key.split("::");
+          return {
+            moduleKey,
+            action,
+            granted: cell.granted,
+            effect: cell.effect,
+          };
+        });
       const res = await fetch(`${API_BASE}/access-control/roles/${selectedRoleId}/permissions`, {
         method: "PUT",
         headers: authHeaders(true),
@@ -244,6 +363,7 @@ export default function RolesSettingsPage() {
 
   const groups: CatalogGroup[] = catalog?.groups || [];
   const actions: string[] = catalog?.actions || ["VIEW", "CREATE", "EDIT", "DELETE"];
+  const selectedRole = roles.find((role) => role.id === selectedRoleId) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -314,6 +434,27 @@ export default function RolesSettingsPage() {
                     onChange={(event) => setForm({ ...form, rank: event.target.value })}
                   />
                 </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="role-parent">Inherits from (optional)</Label>
+                  <Select
+                    id="role-parent"
+                    value={form.parentRoleId}
+                    onChange={(event) => setForm({ ...form, parentRoleId: event.target.value })}
+                  >
+                    <option value="">No parent (root role)</option>
+                    {roles
+                      .filter((role) => !role.isTenantAdmin)
+                      .map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                          {role.rank ? ` (rank ${role.rank})` : ""}
+                        </option>
+                      ))}
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    A child role inherits every grant from its parent and may add or revoke permissions.
+                  </p>
+                </div>
               </div>
               <div className="mt-4">
                 <Button onClick={createRole} disabled={creating}>
@@ -335,6 +476,7 @@ export default function RolesSettingsPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Scope</TableHead>
                     <TableHead>Rank</TableHead>
+                    <TableHead>Inherits from</TableHead>
                     <TableHead>Members</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -353,6 +495,35 @@ export default function RolesSettingsPage() {
                       </TableCell>
                       <TableCell>{role.dataScope}</TableCell>
                       <TableCell>{role.rank}</TableCell>
+                      <TableCell>
+                        {role.isTenantAdmin ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <Select
+                            aria-label={`Parent role for ${role.name}`}
+                            value={role.parentRoleId ?? ""}
+                            disabled={savingParent}
+                            className="min-w-40"
+                            onChange={(event) => changeParent(role, event.target.value)}
+                          >
+                            <option value="">No parent</option>
+                            {roles
+                              .filter(
+                                (candidate) =>
+                                  candidate.id !== role.id &&
+                                  !candidate.isTenantAdmin &&
+                                  (!role.rank ||
+                                    !candidate.rank ||
+                                    candidate.rank < role.rank),
+                              )
+                              .map((candidate) => (
+                                <option key={candidate.id} value={candidate.id}>
+                                  {candidate.name}
+                                </option>
+                              ))}
+                          </Select>
+                        )}
+                      </TableCell>
                       <TableCell>{role._count?.users ?? 0}</TableCell>
                       <TableCell>
                         {role.isTenantAdmin ? (
@@ -442,6 +613,14 @@ export default function RolesSettingsPage() {
                   The tenant admin role always has every permission and cannot be edited.
                 </p>
               )}
+              {selectedRole?.parentRole && (
+                <p className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Inherits from <strong>{selectedRole.parentRole.name}</strong>. Ticked inherited
+                  permissions are marked as inherited; unchecking one stores an explicit revoke on this
+                  role.
+                </p>
+              )}
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
               {grantsLoading && <p className="text-sm text-muted-foreground">Loading permissions…</p>}
@@ -471,16 +650,20 @@ export default function RolesSettingsPage() {
                             <td className="py-2">{module.name}</td>
                             {actions.map((action) => {
                               const key = grantKey(module.key, action);
+                              const cell = grants[key];
                               return (
                                 <td key={action} className="py-2 text-center">
-                                  <Checkbox
-                                    aria-label={`${module.name} ${action}`}
-                                    checked={immutable ? true : !!grants[key]}
-                                    disabled={immutable || grantsLoading}
-                                    onChange={(event) =>
-                                      toggleGrant(module.key, action, event.target.checked)
-                                    }
-                                  />
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Checkbox
+                                      aria-label={`${module.name} ${action}`}
+                                      checked={immutable ? true : !!cell?.granted}
+                                      disabled={immutable || grantsLoading}
+                                      onChange={(event) =>
+                                        toggleGrant(module.key, action, event.target.checked)
+                                      }
+                                    />
+                                    {!immutable && grantBadge(cell)}
+                                  </div>
                                 </td>
                               );
                             })}

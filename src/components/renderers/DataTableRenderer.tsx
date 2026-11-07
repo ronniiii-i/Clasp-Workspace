@@ -191,6 +191,11 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
     });
   };
 
+  const handleReassigned = (updated: WorkspaceRecord) => {
+    setDetail(updated);
+    void records.refetch();
+  };
+
   const changeFilter = (field: string, value: string) => {
     setPage(1);
     setFilters((current) => {
@@ -439,6 +444,10 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
         record={detail}
         meta={entityMeta}
         onEdit={canEdit && detail ? () => openEdit(detail) : undefined}
+        deptKey={deptKey}
+        moduleKey={moduleKey}
+        canReassign={canEdit && entityMeta?.reassignable === true}
+        onReassigned={handleReassigned}
       />
 
       <RecordFormDialog

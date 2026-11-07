@@ -184,6 +184,7 @@ export interface EntityMeta {
   groupableFields: string[];
   supportedScopes: DataScope[];
   readOnly: boolean;
+  reassignable?: boolean;
 }
 
 export interface ModuleDefinition {
@@ -251,6 +252,16 @@ export interface ListMeta {
 }
 
 export type WorkspaceRecord = { id: string } & Record<string, unknown>;
+
+/** A user eligible to receive a reassigned record. */
+export interface AssigneeUser {
+  id: string;
+  name: string;
+  email?: string | null;
+  departmentId?: string | null;
+  roleId?: string | null;
+  status?: string | null;
+}
 
 export interface RecordsPage<Row = WorkspaceRecord> {
   data: Row[];

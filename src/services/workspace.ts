@@ -2,6 +2,7 @@ import { apiRequest } from "./api-client";
 import type {
   AggregateResponse,
   AggregateWidgetResult,
+  AssigneeUser,
   DocumentInput,
   DocumentListQuery,
   DocumentPage,
@@ -156,6 +157,37 @@ export const WorkspaceService = {
         method: "POST",
         body: JSON.stringify({ status }),
         errorMessage: "Failed to move record",
+      },
+    );
+  },
+
+  /** Users the current actor may reassign a record to. */
+  listAssignees(
+    deptKey: string,
+    moduleKey: string,
+  ): Promise<{ users: AssigneeUser[] }> {
+    return apiRequest<{ users: AssigneeUser[] }>(
+      modulePath(deptKey, moduleKey, "/records/assignees"),
+      { errorMessage: "Failed to load assignees" },
+    );
+  },
+
+  reassignRecord<Row = WorkspaceRecord>(
+    deptKey: string,
+    moduleKey: string,
+    id: string,
+    assignedToId: string,
+  ): Promise<Row> {
+    return apiRequest<Row>(
+      modulePath(
+        deptKey,
+        moduleKey,
+        `/records/${encodeURIComponent(id)}/reassign`,
+      ),
+      {
+        method: "POST",
+        body: JSON.stringify({ assignedToId }),
+        errorMessage: "Failed to reassign record",
       },
     );
   },
