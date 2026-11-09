@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/stores/auth-store";
 import { formatDate, formatDateTime, formatEnum, initials, roleLabel } from "@/lib/format";
+import { AvatarUploader } from "@/components/profile/AvatarUploader";
 
 const API_BASE = process.env.NEXT_PUBLIC_API || "http://localhost:3030";
 
@@ -49,7 +50,6 @@ export default function ProfilePage() {
   const { user, token, refreshUserData } = useAuthStore();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState("");
-  const [avatar, setAvatar] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -63,7 +63,6 @@ export default function ProfilePage() {
       const data: Profile = await res.json();
       setProfile(data);
       setName(data.name ?? "");
-      setAvatar(data.avatarUrl ?? "");
     } catch (error) {
       // Fall back to the cached session so the page is never empty.
       if (user) {
@@ -85,7 +84,6 @@ export default function ProfilePage() {
             : null,
         });
         setName(user.name ?? "");
-        setAvatar(user.avatarUrl ?? user.avatar ?? "");
       }
       toast.error(error instanceof Error ? error.message : "Failed to load profile");
     } finally {
@@ -112,7 +110,7 @@ export default function ProfilePage() {
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-        body: JSON.stringify({ name: name.trim(), avatar: avatar.trim() }),
+        body: JSON.stringify({ name: name.trim() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -130,7 +128,7 @@ export default function ProfilePage() {
     }
   };
 
-  const displayAvatar = avatar || profile?.avatarUrl;
+  const displayAvatar = profile?.avatarUrl;
 
   return (
     <div className="flex flex-col gap-6">
@@ -200,17 +198,18 @@ export default function ProfilePage() {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="profile-avatar">Profile picture URL</Label>
-                <Input
-                  id="profile-avatar"
-                  value={avatar}
-                  onChange={(event) => setAvatar(event.target.value)}
-                  placeholder="https://example.com/photo.jpg"
-                  disabled={loading}
+                <Label>Profile picture</Label>
+                <AvatarUploader
+                  avatarUrl={profile?.avatarUrl ?? null}
+                  name={profile?.name ?? name}
+                  email={profile?.email}
+                  disabled={loading || saving}
+                  onChange={(avatarUrl) =>
+                    setProfile((current) =>
+                      current ? { ...current, avatarUrl } : current,
+                    )
+                  }
                 />
-                <p className="text-xs text-muted-foreground">
-                  Leave blank to use your initials.
-                </p>
               </div>
               <div>
                 <Button onClick={save} disabled={loading || saving}>

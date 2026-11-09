@@ -1,5 +1,11 @@
 import type { EntityFieldMeta, EntityMeta, TableColumnConfig } from "@/lib/workspace-types";
-import { formatDate, formatDateTime, formatEnum } from "@/lib/format";
+import {
+  formatCurrency as formatWorkspaceCurrency,
+  formatDate,
+  formatDateTime,
+  formatEnum,
+  formatNumber as formatWorkspaceNumber,
+} from "@/lib/format";
 
 export interface FieldDefinition {
   name: string;
@@ -60,24 +66,12 @@ export function isDateField(field?: EntityFieldMeta): boolean {
   return field?.type === "date";
 }
 
-const CURRENCY_FORMAT = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
-
-const NUMBER_FORMAT = new Intl.NumberFormat(undefined, {
-  maximumFractionDigits: 2,
-});
-
 export function formatCurrencyValue(value: unknown): string {
-  const numeric = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(numeric) ? CURRENCY_FORMAT.format(numeric) : "—";
+  return formatWorkspaceCurrency(value as number);
 }
 
 export function formatNumber(value: unknown): string {
-  const numeric = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(numeric) ? NUMBER_FORMAT.format(numeric) : "—";
+  return formatWorkspaceNumber(value as number);
 }
 
 /** Plain text for a cell, driven by the column or entity field metadata. */

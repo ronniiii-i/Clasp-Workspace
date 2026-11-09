@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { formatCurrency, formatNumber } from "@/lib/format";
 import type {
   DashboardData,
   Metric,
@@ -99,26 +100,21 @@ interface BackendDashboardWidgetPayload {
   leaveRequests?: LeaveRequest[];
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: value >= 1000000 ? "compact" : "standard",
-    maximumFractionDigits: value >= 1000000 ? 1 : 0,
-  }).format(value);
-}
-
 function formatMetricValue(metric: BackendMetric): string {
   switch (metric.format) {
     case "currency":
-      return formatCurrency(metric.value);
+      return formatCurrency(metric.value, undefined, "—", {
+        compact: metric.value >= 1_000_000,
+      });
     case "percent":
-      return `${metric.value}%`;
+      return `${formatNumber(metric.value, undefined, "—", { maximumFractionDigits: 2 })}%`;
     case "hours":
-      return `${metric.value}h`;
+      return `${formatNumber(metric.value, undefined, "—", { maximumFractionDigits: 2 })}h`;
     case "number":
     default:
-      return metric.value.toLocaleString("en-US");
+      return formatNumber(metric.value, undefined, "—", {
+        maximumFractionDigits: 0,
+      });
   }
 }
 

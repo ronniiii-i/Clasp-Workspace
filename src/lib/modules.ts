@@ -49,6 +49,15 @@ export interface RoleSummary {
   isTenantAdmin?: boolean;
 }
 
+export interface WorkspaceSettings {
+  currency: string;
+  currencySymbol?: string | null;
+  dateFormat: string;
+  timeZone: string;
+  locale: string;
+  weekStartsOn: number;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -65,6 +74,15 @@ export interface AuthUser {
   tenantSlug?: string;
   tenantName?: string;
   tenantStatus?: string;
+  /** Workspace preferences returned with the session (Phase 4). */
+  settings?: WorkspaceSettings;
+  tenant?: {
+    id?: string;
+    name?: string | null;
+    slug?: string | null;
+    status?: string;
+    settings?: WorkspaceSettings;
+  };
   departmentId?: string | null;
   /** `type` is the canonical DepartmentType enum and is preferred for routing. */
   department: { id: string; name?: string; key?: string; type?: string } | null;

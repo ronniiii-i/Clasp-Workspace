@@ -10,7 +10,8 @@ import {
   register as registerAPI,
   setupTokenRefresh,
 } from "@/lib/auth";
-import type { AuthUser } from "@/lib/modules";
+import type { AuthUser, WorkspaceSettings } from "@/lib/modules";
+import { configureWorkspaceFormat } from "@/lib/format";
 
 const CACHED_USER_KEY = "auth_user_v3";
 
@@ -33,6 +34,8 @@ export interface AuthStore {
   ) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<AuthUser | undefined>;
+  /** Merge newly saved workspace preferences into the cached session. */
+  updateWorkspaceSettings: (settings: WorkspaceSettings) => void;
 }
 
 /**
@@ -63,12 +66,17 @@ function readCachedUser(): AuthUser | null {
 }
 
 function persistUser(user: AuthUser): void {
+  syncFormatting(user);
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
   } catch {
     // Storage can be unavailable (private mode); the session still works.
   }
+}
+
+function syncFormatting(user: AuthUser | null): void {
+  configureWorkspaceFormat(user?.tenant?.settings ?? user?.settings ?? null);
 }
 
 function clearStorage(): void {
@@ -134,6 +142,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ token: storedToken, isLoading: true });
 
       if (!storedToken) {
+        syncFormatting(null);
         set({ user: null, isLoading: false, initialized: true });
         return;
       }
@@ -145,6 +154,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       // `refreshUserData` and whenever the token is reissued.
       const cachedUser = readCachedUser();
       if (cachedUser) {
+        syncFormatting(cachedUser);
         set({ user: cachedUser, isLoading: false, initialized: true });
         return;
       }
@@ -156,6 +166,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       } catch {
         clearStorage();
         stopTracking();
+        syncFormatting(null);
         set({
           token: null,
           user: null,
@@ -206,6 +217,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   logout: async () => {
     stopTracking();
+    syncFormatting(null);
     set({ token: null, user: null });
     // `logoutAPI` clears storage, the cookie and redirects to /login.
     await logoutAPI();
@@ -225,5 +237,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       // surface on the next explicit API call.
       return undefined;
     }
+  },
+
+  updateWorkspaceSettings: (settings: WorkspaceSettings) => {
+    const current = get().user;
+    if (!current) return;
+    const next: AuthUser = {
+      ...current,
+      settings,
+      tenant: { ...(current.tenant ?? {}), settings },
+      tenantName: current.tenant?.name ?? current.tenantName,
+      tenantSlug: current.tenant?.slug ?? current.tenantSlug,
+    };
+    persistUser(next);
+    set({ user: next });
   },
 }));
