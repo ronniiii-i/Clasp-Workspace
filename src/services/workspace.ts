@@ -7,6 +7,10 @@ import type {
   DocumentListQuery,
   DocumentPage,
   DocumentRecord,
+  LeaveCreateInput,
+  LeaveRequestRecord,
+  LeaveTimelineResponse,
+  LeaveTransitionInput,
   ModuleDefinition,
   RecordFilter,
   RecordsPage,
@@ -189,6 +193,58 @@ export const WorkspaceService = {
         body: JSON.stringify({ assignedToId }),
         errorMessage: "Failed to reassign record",
       },
+    );
+  },
+
+  // Leave workflow ---------------------------------------------------------
+
+  createLeaveRequest(
+    deptKey: string,
+    moduleKey: string,
+    input: LeaveCreateInput,
+  ): Promise<LeaveRequestRecord> {
+    return apiRequest<LeaveRequestRecord>(
+      modulePath(deptKey, moduleKey, "/leave-requests"),
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+        errorMessage: "Failed to submit leave request",
+      },
+    );
+  },
+
+  transitionLeaveRequest(
+    deptKey: string,
+    moduleKey: string,
+    id: string,
+    input: LeaveTransitionInput,
+  ): Promise<LeaveRequestRecord> {
+    return apiRequest<LeaveRequestRecord>(
+      modulePath(
+        deptKey,
+        moduleKey,
+        `/leave-requests/${encodeURIComponent(id)}/transition`,
+      ),
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+        errorMessage: "Failed to update leave request",
+      },
+    );
+  },
+
+  getLeaveTimeline(
+    deptKey: string,
+    moduleKey: string,
+    id: string,
+  ): Promise<LeaveTimelineResponse> {
+    return apiRequest<LeaveTimelineResponse>(
+      modulePath(
+        deptKey,
+        moduleKey,
+        `/leave-requests/${encodeURIComponent(id)}/timeline`,
+      ),
+      { errorMessage: "Failed to load leave timeline" },
     );
   },
 

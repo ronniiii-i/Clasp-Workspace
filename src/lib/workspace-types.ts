@@ -137,12 +137,30 @@ export interface FormConfig {
   successMessage: string;
 }
 
+export interface WorkflowStageConfig {
+  value: string;
+  label: string;
+}
+
+export interface WorkflowConfig {
+  version: typeof MODULE_CONFIG_VERSION;
+  entity: string | null;
+  /** Identifies the state machine that drives this module. */
+  workflow: string;
+  stages: WorkflowStageConfig[];
+  /** Fields a requester supplies when creating a record. */
+  requesterFields: string[];
+  allowCreate: boolean;
+  allowCancel: boolean;
+}
+
 export type ModuleConfig =
   | TableConfig
   | KanbanConfig
   | DashboardConfig
   | DocumentConfig
-  | FormConfig;
+  | FormConfig
+  | WorkflowConfig;
 
 export type EntityFieldType =
   | "text"
@@ -349,4 +367,87 @@ export interface SubmissionResult {
   submissionId: string;
   entityId?: string;
   status: string;
+}
+
+// Leave workflow ----------------------------------------------------------
+
+export type LeaveType =
+  | "ANNUAL"
+  | "SICK"
+  | "CASUAL"
+  | "UNPAID"
+  | "PARENTAL"
+  | "OTHER";
+
+export type LeaveStatus =
+  | "PENDING_TEAM_LEAD"
+  | "PENDING_HR"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export type LeaveAction = "APPROVE" | "REJECT" | "CANCEL";
+
+export interface LeaveUserSummary {
+  id: string;
+  name: string;
+  email?: string | null;
+  departmentId?: string | null;
+}
+
+/** A `leave_requests` row with its approver relations. */
+export interface LeaveRequestRecord extends WorkspaceRecord {
+  id: string;
+  userId: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string;
+  status: LeaveStatus;
+  currentStage: number;
+  teamLeadId?: string | null;
+  hodId?: string | null;
+  hrApproverId?: string | null;
+  decidedById?: string | null;
+  decidedAt?: string | null;
+  decisionNote?: string | null;
+  submittedAt?: string | null;
+  cancelledAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: LeaveUserSummary | null;
+  teamLead?: LeaveUserSummary | null;
+  hod?: LeaveUserSummary | null;
+  hrApprover?: LeaveUserSummary | null;
+  decidedBy?: LeaveUserSummary | null;
+}
+
+export interface LeaveTimelineEntry {
+  id: string;
+  action: string;
+  actorId: string | null;
+  actorName: string;
+  at: string;
+  status: LeaveStatus | string | null;
+  note: string | null;
+  override: boolean;
+}
+
+export interface LeaveTimelineResponse {
+  success: boolean;
+  request: LeaveRequestRecord;
+  timeline: LeaveTimelineEntry[];
+}
+
+export interface LeaveCreateInput {
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  reason: string;
+}
+
+export interface LeaveTransitionInput {
+  action: LeaveAction;
+  note?: string;
 }

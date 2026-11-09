@@ -6,6 +6,7 @@ const TYPE_LABELS: Record<ModuleType, string> = {
   KANBAN_BOARD: "board",
   DOCUMENT_HUB: "document",
   FORM_BUILDER: "form",
+  WORKFLOW: "workflow",
 };
 
 /**

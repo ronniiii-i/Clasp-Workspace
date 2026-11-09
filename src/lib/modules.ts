@@ -9,7 +9,8 @@ export type ModuleType =
   | 'DATA_TABLE'
   | 'KANBAN_BOARD'
   | 'DOCUMENT_HUB'
-  | 'FORM_BUILDER';
+  | 'FORM_BUILDER'
+  | 'WORKFLOW';
 
 export type DataScope = 'TENANT' | 'DEPARTMENT' | 'TEAM' | 'SELF';
 

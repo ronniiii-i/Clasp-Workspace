@@ -5,6 +5,7 @@ import { DataTableRenderer } from "./DataTableRenderer";
 import { DocumentRenderer } from "./DocumentRenderer";
 import { FormRenderer } from "./FormRenderer";
 import { KanbanRenderer } from "./KanbanRenderer";
+import { WorkflowRenderer } from "./WorkflowRenderer";
 
 /**
  * Renderer dispatch table.
@@ -19,6 +20,7 @@ export const rendererRegistry: Record<ModuleType, ModuleRenderer> = {
   KANBAN_BOARD: KanbanRenderer,
   DOCUMENT_HUB: DocumentRenderer,
   FORM_BUILDER: FormRenderer,
+  WORKFLOW: WorkflowRenderer,
 };
 
 export function getRenderer(type: ModuleType): ModuleRenderer | undefined {

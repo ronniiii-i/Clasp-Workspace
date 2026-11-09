@@ -7,6 +7,7 @@ const TYPE_LABELS: Record<ModuleType, string> = {
   KANBAN_BOARD: "Loading board",
   DOCUMENT_HUB: "Loading documents",
   FORM_BUILDER: "Loading form",
+  WORKFLOW: "Loading leave workflow",
 };
 
 /** Type-aware placeholder shown while a module definition or renderer loads. */
