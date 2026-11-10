@@ -59,7 +59,7 @@ export const defaultMetadata: Metadata = {
     description: DEFAULT_DESCRIPTION,
     images: [
       {
-        url: `${SITE_URL}/og-image.png`,
+        url: `${SITE_URL}/og-image.jpg`,
         width: 1200,
         height: 630,
         alt: "Clasp Workspace — All-in-one business management platform built by Roni Egbu",
@@ -72,7 +72,7 @@ export const defaultMetadata: Metadata = {
     creator: "@ronniiii_i",
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
-    images: [`${SITE_URL}/og-image.png`],
+    images: [`${SITE_URL}/og-image.jpg`],
   },
   manifest: "/site.webmanifest",
   category: "Business",
@@ -140,7 +140,7 @@ export function generatePageMetadata({
       ]
     : [
         {
-          url: `${SITE_URL}/og-image.png`,
+          url: `${SITE_URL}/og-image.jpg`,
           width: 1200,
           height: 630,
           alt: "Clasp Workspace",
