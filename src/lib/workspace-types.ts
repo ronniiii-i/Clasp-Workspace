@@ -173,6 +173,14 @@ export type EntityFieldType =
   | "json"
   | "string[]";
 
+export interface EntityFieldReference {
+  entity: "users" | "projects" | "departments" | "contacts";
+  labelField: string;
+  secondaryFields?: string[];
+  relationField?: string;
+  filter?: Record<string, unknown>;
+}
+
 export interface EntityFieldMeta {
   name: string;
   label: string;
@@ -187,12 +195,18 @@ export interface EntityFieldMeta {
   readOnly?: boolean;
   enumValues?: string[];
   description?: string;
+  reference?: EntityFieldReference;
+  selfEditable?: boolean;
+  sensitive?: boolean;
 }
 
 export interface EntityMeta {
   key: string;
   label: string;
   fields: EntityFieldMeta[];
+  displayField?: string;
+  secondaryDisplayFields?: string[];
+  selfEditableFields?: string[];
   defaultSort: { field: string; dir: "asc" | "desc" };
   searchFields: string[];
   statusField: string | null;
@@ -202,6 +216,7 @@ export interface EntityMeta {
   groupableFields: string[];
   supportedScopes: DataScope[];
   readOnly: boolean;
+  softDelete?: boolean;
   reassignable?: boolean;
 }
 
@@ -221,6 +236,7 @@ export interface ModuleDefinition {
   department: ModuleDepartment | null;
   dataScope: DataScope;
   actions: Permission[];
+  features?: { attachments?: boolean };
   entityMeta: EntityMeta | null;
 }
 
@@ -285,6 +301,58 @@ export interface RecordsPage<Row = WorkspaceRecord> {
   data: Row[];
   meta: ListMeta;
   scope: DataScope;
+}
+
+/** Relation dropdown option returned by the lookups endpoint. */
+export interface LookupOption {
+  value: string;
+  label: string;
+  secondary?: string | null;
+  meta?: Record<string, unknown>;
+}
+
+export interface LookupResponse {
+  field: string;
+  options: LookupOption[];
+}
+
+export interface LookupQuery {
+  q?: string;
+  limit?: number;
+  ids?: string[];
+}
+
+export interface AttachmentRecord {
+  id: string;
+  entity: string;
+  entityId: string;
+  key: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedById: string;
+  createdAt: string;
+  downloadUrl: string;
+  uploader?: { id: string; name: string; email?: string | null } | null;
+}
+
+export interface AttachmentListResponse {
+  data: AttachmentRecord[];
+}
+
+export interface PresignUploadResult {
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+  headers: Record<string, string>;
+  expiresAt: string;
+}
+
+export interface RegisterAttachmentInput {
+  key: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
 }
 
 export interface AggregateSeriesPoint {

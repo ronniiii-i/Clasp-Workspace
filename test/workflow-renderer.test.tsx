@@ -168,6 +168,23 @@ const records = {
   refetch: jest.fn(),
 };
 
+/** ISO date for the next Monday, always at least one day in the future. */
+function nextMondayIso(): string {
+  const now = new Date();
+  const date = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  const delta = (8 - date.getUTCDay()) % 7 || 7;
+  date.setUTCDate(date.getUTCDate() + delta);
+  return date.toISOString().slice(0, 10);
+}
+
+function addDaysIso(start: string, days: number): string {
+  const date = new Date(`${start}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function renderWorkflow(options: {
   actions?: Permission[];
   dataScope?: DataScope;
@@ -279,16 +296,21 @@ describe("WorkflowRenderer", () => {
   });
 
   it("submits a leave request with computed working days", async () => {
+    // A future Mon-Fri range keeps the "no past-dated leave" rule from making
+    // this test date-dependent.
+    const startDate = nextMondayIso();
+    const endDate = addDaysIso(startDate, 4);
+
     setUser({ ...REQUESTER });
     renderWorkflow();
 
     fireEvent.click(screen.getByRole("button", { name: /New request/ }));
 
     fireEvent.change(screen.getByLabelText("Start date"), {
-      target: { value: "2026-11-09" },
+      target: { value: startDate },
     });
     fireEvent.change(screen.getByLabelText("End date"), {
-      target: { value: "2026-11-13" },
+      target: { value: endDate },
     });
     expect(screen.getByText("Working days:")).toBeInTheDocument();
 
@@ -304,8 +326,8 @@ describe("WorkflowRenderer", () => {
       expect(createMutate).toHaveBeenCalledWith(
         {
           type: "ANNUAL",
-          startDate: "2026-11-09",
-          endDate: "2026-11-13",
+          startDate,
+          endDate,
           reason: "Family visit",
         },
         expect.any(Object),

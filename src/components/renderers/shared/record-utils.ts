@@ -7,6 +7,9 @@ import {
   formatNumber as formatWorkspaceNumber,
 } from "@/lib/format";
 
+export const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export interface FieldDefinition {
   name: string;
   label: string;
@@ -18,11 +21,25 @@ export interface FieldDefinition {
     | "date"
     | "select"
     | "checkbox"
-    | "email";
+    | "email"
+    | "relation";
   required?: boolean;
   options?: string[];
   mapTo?: "column" | "customFields";
   placeholder?: string;
+  reference?: {
+    entity: string;
+    field: string;
+    label: string;
+    allowClear?: boolean;
+    relationField?: string;
+  };
+}
+
+export interface CustomFieldEntry {
+  key: string;
+  label: string;
+  value: unknown;
 }
 
 const READ_ONLY_NAMES = new Set([
@@ -32,10 +49,162 @@ const READ_ONLY_NAMES = new Set([
   "updatedAt",
   "createdBy",
   "updatedBy",
-  "departmentId",
-  "userId",
-  "assignedToId",
+  "deletedAt",
+  "deletedById",
 ]);
+
+const SYSTEM_FIELDS = new Set([
+  "id",
+  "tenantId",
+  "createdAt",
+  "updatedAt",
+  "createdBy",
+  "updatedBy",
+  "deletedAt",
+  "deletedById",
+]);
+
+/** UUID-shaped strings are never rendered as user-facing labels. */
+export function isUuid(value: unknown): boolean {
+  return typeof value === "string" && UUID_PATTERN.test(value.trim());
+}
+
+/** `assignedToId` -> `Assigned to`, `createdAt` -> `Created at`. */
+export function humanizeKey(key: string): string {
+  const spaced = String(key)
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+  const withoutId = spaced.replace(/\sId$/i, "");
+  if (!withoutId) return spaced;
+  return withoutId.charAt(0).toUpperCase() + withoutId.slice(1).toLowerCase();
+}
+
+/**
+ * Human label for a relation value or record.
+ *
+ * Checks the common display columns in order and refuses bare UUIDs so a raw
+ * id can never leak into a cell, chip or aria-label.
+ */
+export function displayName(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || isUuid(trimmed)) return null;
+    return trimmed;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const names = value
+      .map((entry) => displayName(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return names.length > 0 ? names.join(", ") : null;
+  }
+  if (typeof value !== "object") return null;
+
+  const record = value as Record<string, unknown>;
+  const first = record.firstName ?? record.first_name;
+  const last = record.lastName ?? record.last_name;
+  const combined = [first, last]
+    .filter((part) => typeof part === "string" && part.trim().length > 0)
+    .join(" ")
+    .trim();
+
+  const candidates: unknown[] = [
+    record.label,
+    record.name,
+    record.title,
+    record.subject,
+    record.number,
+    record.invoiceNumber,
+    combined || undefined,
+    record.company,
+    record.email,
+    record.key,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim() && !isUuid(candidate)) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+/** Plain text for a cell that never returns raw JSON or a UUID. */
+export function safeCellText(
+  value: unknown,
+  field?: EntityFieldMeta,
+): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (isUuid(value)) return "—";
+
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((entry) => displayName(entry) ?? (isUuid(entry) ? null : entry))
+      .filter((entry) => entry !== null && entry !== undefined && entry !== "")
+      .map((entry) => String(entry));
+    return parts.length > 0 ? parts.join(", ") : "—";
+  }
+
+  if (typeof value === "object") {
+    return displayName(value) ?? "—";
+  }
+
+  return formatCellText(value, { field });
+}
+
+/**
+ * Fixed system fields and anything the backend marked sensitive are hidden
+ * from tables and drawers. A raw `*Id` is hidden unless the backend supplies a
+ * relation reference for it.
+ */
+export function isHiddenField(
+  name: string,
+  field?: EntityFieldMeta,
+): boolean {
+  if (SYSTEM_FIELDS.has(name)) return true;
+  if (field?.sensitive) return true;
+  if (/Id$/.test(name) && !field?.reference) return true;
+  return false;
+}
+
+/** Normalise `customFields` JSON into labelled entries for the drawer. */
+export function customFieldEntries(value: unknown): CustomFieldEntry[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+
+  return Object.entries(value as Record<string, unknown>)
+    .filter(([, entry]) => entry !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, entry]) => ({
+      key,
+      label: humanizeKey(key),
+      value: entry,
+    }));
+}
+
+/** Relation key for a scalar FK (`assignedToId` -> `assignedTo`). */
+export function relationKeyFor(
+  fieldName: string,
+  reference?: { relationField?: string },
+): string {
+  return reference?.relationField || fieldName.replace(/Id$/, "");
+}
+
+/** Prefer the included relation object when a column names a scalar FK. */
+export function relationValueFor(
+  record: Record<string, unknown> | null | undefined,
+  fieldName: string,
+  reference?: { relationField?: string },
+): unknown {
+  if (!record) return undefined;
+  const relation = record[relationKeyFor(fieldName, reference)];
+  if (relation !== undefined && relation !== null) return relation;
+  return record[fieldName];
+}
 
 /** Read a dotted path (`customer.company`) without throwing on nulls. */
 export function getPath(
@@ -56,6 +225,20 @@ export function fieldMetaFor(
 ): EntityFieldMeta | undefined {
   if (!meta) return undefined;
   return meta.fields.find((field) => field.name === path);
+}
+
+/** Resolve a column path that may be a scalar FK or its relation key. */
+export function fieldMetaForColumn(
+  meta: EntityMeta | null | undefined,
+  path: string,
+): EntityFieldMeta | undefined {
+  if (!meta) return undefined;
+  return meta.fields.find(
+    (field) =>
+      field.name === path ||
+      (field.reference !== undefined &&
+        relationKeyFor(field.name, field.reference) === path),
+  );
 }
 
 export function isCurrencyField(field?: EntityFieldMeta): boolean {
@@ -85,14 +268,15 @@ export function formatCellText(
   if (value === null || value === undefined || value === "") return "—";
 
   if (Array.isArray(value)) {
-    return value.length > 0 ? value.map((entry) => String(entry)).join(", ") : "—";
+    const parts = value
+      .map((entry) => displayName(entry) ?? (isUuid(entry) ? null : entry))
+      .filter((entry) => entry !== null && entry !== undefined && entry !== "")
+      .map((entry) => String(entry));
+    return parts.length > 0 ? parts.join(", ") : "—";
   }
 
   if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const label = record.name ?? record.label ?? record.title ?? record.company;
-    if (typeof label === "string" && label.length > 0) return label;
-    return JSON.stringify(value);
+    return displayName(value) ?? "—";
   }
 
   const type = options.columnType ?? options.field?.type;
@@ -122,14 +306,27 @@ export function columnsFromMeta(
   if (!meta) return [];
   return meta.fields
     .filter((field) => !field.relation)
+    .filter((field) => !isHiddenField(field.name, field))
     .slice(0, 6)
-    .map((field) => ({
-      field: field.name,
-      label: field.label,
-      type: field.type,
-      sortable: field.sortable,
-      filterable: field.filterable,
-    }));
+    .map((field) => {
+      if (field.reference) {
+        // Read the included relation object rather than the raw foreign key.
+        return {
+          field: relationKeyFor(field.name, field.reference),
+          label: field.label,
+          type: "text",
+          sortable: false,
+          filterable: false,
+        };
+      }
+      return {
+        field: field.name,
+        label: field.label,
+        type: field.type,
+        sortable: field.sortable,
+        filterable: field.filterable,
+      };
+    });
 }
 
 function formTypeFor(field: EntityFieldMeta): FieldDefinition["type"] | null {
@@ -161,9 +358,28 @@ export function formFieldsFromMeta(
 ): FieldDefinition[] {
   if (!meta) return [];
 
-  return meta.fields.flatMap((field) => {
+  return meta.fields.flatMap<FieldDefinition>((field) => {
     if (field.relation || field.readOnly || field.writable === false) return [];
     if (READ_ONLY_NAMES.has(field.name)) return [];
+
+    if (field.reference) {
+      return [
+        {
+          name: field.name,
+          label: field.label,
+          type: "relation" as const,
+          required: field.required,
+          mapTo: "column" as const,
+          reference: {
+            entity: field.reference.entity,
+            field: field.name,
+            label: field.label,
+            allowClear: !field.required,
+            relationField: field.reference.relationField,
+          },
+        },
+      ];
+    }
 
     const type = formTypeFor(field);
     if (!type) return [];
@@ -191,7 +407,18 @@ export function initialFormValues(
   for (const field of fields) {
     const raw = record ? getPath(record, field.name) : undefined;
 
-    if (field.type === "checkbox") {
+    if (field.type === "relation") {
+      const relation = record
+        ? relationValueFor(record, field.name, field.reference)
+        : undefined;
+      const scalar =
+        typeof raw === "string" && raw.length > 0
+          ? raw
+          : relation && typeof relation === "object"
+            ? (relation as Record<string, unknown>).id
+            : undefined;
+      values[field.name] = typeof scalar === "string" ? scalar : "";
+    } else if (field.type === "checkbox") {
       values[field.name] = Boolean(raw);
     } else if (field.type === "date" && typeof raw === "string") {
       values[field.name] = raw.slice(0, 10);

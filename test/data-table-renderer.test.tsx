@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { DataTableRenderer } from "@/components/renderers/DataTableRenderer";
 import { useWorkspaceRecords, useWorkspaceRecordMutations } from "@/hooks/workspace/useWorkspaceRecords";
+import { WorkspaceService } from "@/services/workspace";
 import type { ModuleDefinition } from "@/lib/workspace-types";
 import {
   buildEntityMeta,
@@ -167,8 +168,45 @@ describe("DataTableRenderer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /View INV-1001/ }));
 
-    expect(screen.getByText(/Record record-1/)).toBeInTheDocument();
-    expect(screen.getByText(/Updated/)).toBeInTheDocument();
+    expect(screen.getByText("Details")).toBeInTheDocument();
+    expect(screen.getByText("Last updated")).toBeInTheDocument();
+  });
+
+  it("opens the drawer when the row is clicked", () => {
+    renderTable();
+
+    fireEvent.click(screen.getByTestId("record-row"));
+
+    expect(screen.getByText("Details")).toBeInTheDocument();
+    expect(screen.getByTestId("record-row")).toHaveAttribute(
+      "data-record-id",
+      "record-1",
+    );
+  });
+
+  it("opens a record from an ?open= deep link", async () => {
+    const getRecord = jest
+      .spyOn(WorkspaceService, "getRecord")
+      .mockResolvedValue(rows[0]);
+
+    window.history.replaceState({}, "", "/?open=record-1");
+    try {
+      renderTable();
+
+      await waitFor(() => {
+        expect(getRecord).toHaveBeenCalledWith(
+          expect.any(String),
+          "invoices",
+          "record-1",
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByText("Details")).toBeInTheDocument();
+      });
+    } finally {
+      getRecord.mockRestore();
+      window.history.replaceState({}, "", "/");
+    }
   });
 
   it("confirms deletion before calling the API", async () => {

@@ -3,6 +3,8 @@ import type {
   AggregateResponse,
   AggregateWidgetResult,
   AssigneeUser,
+  AttachmentListResponse,
+  AttachmentRecord,
   DocumentInput,
   DocumentListQuery,
   DocumentPage,
@@ -11,10 +13,13 @@ import type {
   LeaveRequestRecord,
   LeaveTimelineResponse,
   LeaveTransitionInput,
+  LookupQuery,
+  LookupResponse,
   ModuleDefinition,
   RecordFilter,
   RecordsPage,
   RecordsQuery,
+  RegisterAttachmentInput,
   SubmissionPage,
   SubmissionResult,
   WorkspaceRecord,
@@ -173,6 +178,86 @@ export const WorkspaceService = {
     return apiRequest<{ users: AssigneeUser[] }>(
       modulePath(deptKey, moduleKey, "/records/assignees"),
       { errorMessage: "Failed to load assignees" },
+    );
+  },
+
+  /** Scoped relation options for one reference field. */
+  lookup(
+    deptKey: string,
+    moduleKey: string,
+    field: string,
+    query: LookupQuery = {},
+  ): Promise<LookupResponse> {
+    const params = new URLSearchParams();
+    if (query.q?.trim()) params.set("q", query.q.trim());
+    if (query.limit) params.set("limit", String(query.limit));
+    if (query.ids?.length) params.set("ids", query.ids.join(","));
+
+    return apiRequest<LookupResponse>(
+      withQuery(
+        modulePath(
+          deptKey,
+          moduleKey,
+          `/lookups/${encodeURIComponent(field)}`,
+        ),
+        params.toString(),
+      ),
+      { errorMessage: "Failed to load options" },
+    );
+  },
+
+  // Attachments ------------------------------------------------------------
+
+  listAttachments(
+    deptKey: string,
+    moduleKey: string,
+    recordId: string,
+  ): Promise<AttachmentListResponse> {
+    return apiRequest<AttachmentListResponse>(
+      modulePath(
+        deptKey,
+        moduleKey,
+        `/records/${encodeURIComponent(recordId)}/attachments`,
+      ),
+      { errorMessage: "Failed to load attachments" },
+    );
+  },
+
+  registerAttachment(
+    deptKey: string,
+    moduleKey: string,
+    recordId: string,
+    input: RegisterAttachmentInput,
+  ): Promise<AttachmentRecord> {
+    return apiRequest<AttachmentRecord>(
+      modulePath(
+        deptKey,
+        moduleKey,
+        `/records/${encodeURIComponent(recordId)}/attachments`,
+      ),
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+        errorMessage: "Failed to save attachment",
+      },
+    );
+  },
+
+  deleteAttachment(
+    deptKey: string,
+    moduleKey: string,
+    recordId: string,
+    attachmentId: string,
+  ): Promise<{ id: string; deleted: true }> {
+    return apiRequest<{ id: string; deleted: true }>(
+      modulePath(
+        deptKey,
+        moduleKey,
+        `/records/${encodeURIComponent(recordId)}/attachments/${encodeURIComponent(
+          attachmentId,
+        )}`,
+      ),
+      { method: "DELETE", errorMessage: "Failed to remove attachment" },
     );
   },
 

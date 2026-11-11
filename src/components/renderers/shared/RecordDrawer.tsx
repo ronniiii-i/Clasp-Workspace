@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -12,18 +12,36 @@ import type {
   WorkspaceRecord,
 } from "@/lib/workspace-types";
 import { WorkspaceService } from "@/services/workspace";
+import { AttachmentsSection } from "./AttachmentsSection";
 import { CellValue } from "./CellValue";
-import { formatTimestamp, getPath } from "./record-utils";
+import {
+  customFieldEntries,
+  displayName,
+  formatTimestamp,
+  isHiddenField,
+  relationValueFor,
+} from "./record-utils";
+
+interface DrawerSectionProps {
+  title: string;
+  children: ReactNode;
+}
+
+function DrawerSection({ title, children }: DrawerSectionProps) {
+  return (
+    <section className="flex flex-col gap-2 border-t border-border pt-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {children}
+    </section>
+  );
+}
 
 /**
  * Read-only record drawer.
  *
- * Shows every allowlisted entity field plus any `customFields` entries stored
- * on the row. Custom fields are authored through the Form renderer and are not
- * first-class columns, so they are rendered separately.
- *
- * When the entity is reassignable and the caller can edit it, the drawer also
- * exposes a reassignment modal backed by the scoped assignee endpoint.
+ * Sections are derived from entity metadata: display fields form the summary,
+ * reference fields become linked relations, the remaining writable/readable
+ * scalars go to Details, and `customFields` gets its own labelled list.
  */
 export function RecordDrawer({
   open,
@@ -35,6 +53,8 @@ export function RecordDrawer({
   deptKey,
   moduleKey,
   canReassign = false,
+  canEdit = false,
+  attachmentsEnabled = false,
   onReassigned,
 }: {
   open: boolean;
@@ -46,6 +66,8 @@ export function RecordDrawer({
   deptKey?: string;
   moduleKey?: string;
   canReassign?: boolean;
+  canEdit?: boolean;
+  attachmentsEnabled?: boolean;
   onReassigned?: (record: WorkspaceRecord) => void;
 }) {
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -54,13 +76,32 @@ export function RecordDrawer({
   const [loadingAssignees, setLoadingAssignees] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const fields = meta?.fields.filter((field) => !field.relation) ?? [];
-  const customFields =
-    record?.customFields &&
-    typeof record.customFields === "object" &&
-    !Array.isArray(record.customFields)
-      ? (record.customFields as Record<string, unknown>)
-      : {};
+  const fields =
+    meta?.fields.filter(
+      (field) => !field.relation && !isHiddenField(field.name, field),
+    ) ?? [];
+
+  const displayFields = new Set(
+    [meta?.displayField, ...(meta?.secondaryDisplayFields ?? [])].filter(
+      (name): name is string => Boolean(name),
+    ),
+  );
+  const displayValues = fields.filter((field) =>
+    displayFields.has(field.name),
+  );
+  const relationFields = fields.filter((field) => field.reference);
+  const detailFields = fields.filter(
+    (field) =>
+      !field.reference &&
+      !displayFields.has(field.name) &&
+      field.name !== "customFields",
+  );
+
+  const customFields = customFieldEntries(record?.customFields);
+  const ownerLabel =
+    displayName(record?.assignedTo) ??
+    displayName(record?.user) ??
+    displayName(record?.createdBy);
 
   const currentOwnerId =
     typeof record?.userId === "string"
@@ -117,9 +158,7 @@ export function RecordDrawer({
         open={open}
         onClose={onClose}
         title={title}
-        description={
-          record ? `Record ${String(record.id).slice(0, 8)}` : undefined
-        }
+        description={meta?.label ?? undefined}
         className="max-w-2xl"
         footer={
           <>
@@ -139,44 +178,129 @@ export function RecordDrawer({
       >
         {record ? (
           <div className="flex max-h-[65vh] flex-col gap-5 overflow-y-auto pr-1">
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-              {fields.map((field) => (
-                <div key={field.name} className="flex flex-col gap-1">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {field.label}
-                  </dt>
-                  <dd className="text-sm">
-                    <CellValue
-                      value={getPath(record, field.name)}
-                      field={field}
-                    />
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
-            {Object.keys(customFields).length > 0 ? (
-              <div className="flex flex-col gap-2 border-t border-border pt-4">
-                <h3 className="text-sm font-semibold">Custom fields</h3>
+            {displayValues.length > 0 ? (
+              <section className="flex flex-col gap-2" aria-label="Summary">
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-                  {Object.entries(customFields).map(([key, value]) => (
-                    <div key={key} className="flex flex-col gap-1">
+                  {displayValues.map((field) => (
+                    <div key={field.name} className="flex flex-col gap-1">
                       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {key}
+                        {field.label}
                       </dt>
                       <dd className="text-sm">
-                        <CellValue value={value} />
+                        <CellValue
+                          value={getFieldValue(record, field)}
+                          field={field}
+                        />
                       </dd>
                     </div>
                   ))}
                 </dl>
-              </div>
+              </section>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-3 border-t border-border pt-4 text-xs text-muted-foreground sm:grid-cols-2">
-              <span>Created {formatTimestamp(record.createdAt)}</span>
-              <span>Updated {formatTimestamp(record.updatedAt)}</span>
-            </div>
+            {relationFields.length > 0 ? (
+              <DrawerSection title="Relations">
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                  {relationFields.map((field) => (
+                    <div key={field.name} className="flex flex-col gap-1">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {field.label}
+                      </dt>
+                      <dd className="text-sm">
+                        <CellValue
+                          value={relationValueFor(
+                            record,
+                            field.name,
+                            field.reference,
+                          )}
+                        />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </DrawerSection>
+            ) : null}
+
+            {detailFields.length > 0 ? (
+              <DrawerSection title="Details">
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                  {detailFields.map((field) => (
+                    <div key={field.name} className="flex flex-col gap-1">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {field.label}
+                      </dt>
+                      <dd className="text-sm">
+                        <CellValue value={getFieldValue(record, field)} field={field} />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </DrawerSection>
+            ) : null}
+
+            {customFields.length > 0 ? (
+              <DrawerSection title="Custom fields">
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                  {customFields.map((entry) => (
+                    <div key={entry.key} className="flex flex-col gap-1">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {entry.label}
+                      </dt>
+                      <dd className="text-sm">
+                        <CellValue value={entry.value} />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </DrawerSection>
+            ) : null}
+
+            {attachmentsEnabled && deptKey && moduleKey ? (
+              <AttachmentsSection
+                deptKey={deptKey}
+                moduleKey={moduleKey}
+                recordId={String(record.id)}
+                canEdit={canEdit}
+              />
+            ) : null}
+
+            <DrawerSection title="Activity">
+              <ul className="flex flex-col gap-2 text-sm">
+                <li className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Created</span>
+                  <span className="tabular-nums">
+                    {formatTimestamp(record.createdAt)}
+                  </span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Last updated</span>
+                  <span className="tabular-nums">
+                    {formatTimestamp(record.updatedAt)}
+                  </span>
+                </li>
+              </ul>
+            </DrawerSection>
+
+            <DrawerSection title="Metadata">
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Record type</dt>
+                  <dd>{meta?.label ?? "—"}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Module</dt>
+                  <dd>{moduleKey ?? "—"}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Department</dt>
+                  <dd>{deptKey ?? "—"}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Owner</dt>
+                  <dd>{ownerLabel ?? "—"}</dd>
+                </div>
+              </dl>
+            </DrawerSection>
           </div>
         ) : null}
       </Modal>
@@ -227,4 +351,15 @@ export function RecordDrawer({
       </Modal>
     </>
   );
+}
+
+/** Reference-aware scalar read for the summary/details sections. */
+function getFieldValue(
+  record: Record<string, unknown>,
+  field: { name: string; reference?: { relationField?: string } },
+): unknown {
+  if (field.reference) {
+    return relationValueFor(record, field.name, field.reference);
+  }
+  return record[field.name];
 }

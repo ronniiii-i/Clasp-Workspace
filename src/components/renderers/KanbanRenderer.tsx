@@ -24,12 +24,14 @@ import { CellValue } from "./shared/CellValue";
 import { ErrorState } from "./shared/ErrorState";
 import { RecordFormDialog } from "./shared/RecordFormDialog";
 import {
-  fieldMetaFor,
+  fieldMetaForColumn,
   formFieldsFromMeta,
   formatCellText,
   getPath,
   initialFormValues,
+  relationValueFor,
 } from "./shared/record-utils";
+import type { EntityMeta } from "@/lib/workspace-types";
 
 const COLUMN_TONES: Record<string, string> = {
   slate: "border-t-slate-400",
@@ -48,23 +50,40 @@ function cardTitle(
   row: WorkspaceRecord,
   config: KanbanConfig,
   fallback: string,
+  meta: EntityMeta | null,
 ): string {
-  const value = getPath(row, config.titleField);
+  const field = config.titleField || meta?.displayField || "";
+  const value = resolveCardValue(row, field, meta);
   if (typeof value === "string" && value.trim()) return value;
   if (typeof value === "number") return String(value);
-  return `${fallback} ${String(row.id).slice(0, 8)}`;
+  return fallback;
+}
+
+/** Read a card field, preferring the included relation object for FKs. */
+function resolveCardValue(
+  row: WorkspaceRecord,
+  field: string,
+  meta: EntityMeta | null,
+): unknown {
+  const fieldMeta = fieldMetaForColumn(meta, field);
+  if (fieldMeta?.reference) {
+    return relationValueFor(row, fieldMeta.name, fieldMeta.reference);
+  }
+  return getPath(row, field);
 }
 
 function CardField({
   row,
   field,
   currency,
+  meta,
 }: {
   row: WorkspaceRecord;
   field: string;
   currency?: boolean;
+  meta: EntityMeta | null;
 }) {
-  const value = getPath(row, field);
+  const value = resolveCardValue(row, field, meta);
   if (value === null || value === undefined || value === "") return null;
 
   return (
@@ -205,12 +224,20 @@ export function KanbanRenderer({ definition }: ModuleRendererProps) {
   }
 
   const renderCard = (row: WorkspaceRecord) => {
-    const title = cardTitle(row, config, definition.name);
-    const value = config.valueField ? getPath(row, config.valueField) : null;
-    const assignee = config.assigneeField
-      ? getPath(row, config.assigneeField)
+    const title = cardTitle(row, config, definition.name, entityMeta);
+    const value = config.valueField
+      ? resolveCardValue(row, config.valueField, entityMeta)
       : null;
-    const due = config.dueField ? getPath(row, config.dueField) : null;
+    const assignee = config.assigneeField
+      ? resolveCardValue(row, config.assigneeField, entityMeta)
+      : null;
+    const due = config.dueField
+      ? resolveCardValue(row, config.dueField, entityMeta)
+      : null;
+    const secondaryFields =
+      (config.secondaryColumns ?? []).length > 0
+        ? (config.secondaryColumns ?? []).map((column) => column.value)
+        : (entityMeta?.secondaryDisplayFields ?? []);
 
     return (
       <article
@@ -249,17 +276,21 @@ export function KanbanRenderer({ definition }: ModuleRendererProps) {
         {value !== null && value !== undefined && value !== "" ? (
           <span className="text-sm font-semibold tabular-nums">
             {formatCellText(value, {
-              columnType: fieldMetaFor(entityMeta, config.valueField ?? "")?.type,
+              columnType: fieldMetaForColumn(
+                entityMeta,
+                config.valueField ?? "",
+              )?.type,
             })}
           </span>
         ) : null}
 
-        {(config.secondaryColumns ?? []).map((column) => (
+        {secondaryFields.map((field) => (
           <CardField
-            key={column.value}
+            key={field}
             row={row}
-            field={column.value}
-            currency={fieldMetaFor(entityMeta, column.value)?.type === "currency"}
+            field={field}
+            meta={entityMeta}
+            currency={fieldMetaForColumn(entityMeta, field)?.type === "currency"}
           />
         ))}
 
@@ -268,13 +299,20 @@ export function KanbanRenderer({ definition }: ModuleRendererProps) {
             <span className="sr-only">Assignee</span>
             <CellValue
               value={assignee}
-              field={fieldMetaFor(entityMeta, config.assigneeField ?? "")}
+              field={fieldMetaForColumn(
+                entityMeta,
+                config.assigneeField ?? "",
+              )}
             />
           </div>
         ) : null}
 
         {due !== null && due !== undefined && due !== "" ? (
-          <CardField row={row} field={config.dueField as string} />
+          <CardField
+            row={row}
+            field={config.dueField as string}
+            meta={entityMeta}
+          />
         ) : null}
 
         {canMove ? (

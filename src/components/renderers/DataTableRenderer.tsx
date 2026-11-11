@@ -45,11 +45,14 @@ import { RecordDrawer } from "./shared/RecordDrawer";
 import { RecordFormDialog } from "./shared/RecordFormDialog";
 import {
   columnsFromMeta,
-  fieldMetaFor,
+  fieldMetaForColumn,
   formFieldsFromMeta,
   getPath,
   initialFormValues,
+  isHiddenField,
+  relationKeyFor,
 } from "./shared/record-utils";
+import { WorkspaceService } from "@/services/workspace";
 
 interface FilterState {
   field: string;
@@ -69,11 +72,30 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
   const config = definition.config as TableConfig;
   const { deptKey, moduleKey } = moduleLocation(definition);
 
-  const columns = useMemo(
-    () =>
-      config.columns.length > 0 ? config.columns : columnsFromMeta(entityMeta),
-    [config.columns, entityMeta],
-  );
+  const columns = useMemo(() => {
+    const raw =
+      config.columns.length > 0 ? config.columns : columnsFromMeta(entityMeta);
+
+    return raw.flatMap((column) => {
+      const field = fieldMetaForColumn(entityMeta, column.field);
+      if (isHiddenField(column.field, field)) return [];
+
+      if (field?.reference) {
+        return [
+          {
+            ...column,
+            field: relationKeyFor(field.name, field.reference),
+            label: column.label || field.label,
+            type: "text",
+            sortable: false,
+            filterable: false,
+          },
+        ];
+      }
+
+      return [{ ...column, label: column.label || field?.label || column.field }];
+    });
+  }, [config.columns, entityMeta]);
 
   const filterDefs = useMemo<TableFilterConfig[]>(() => {
     if (config.filters.length > 0) return config.filters;
@@ -97,6 +119,39 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
   const [editing, setEditing] = useState<WorkspaceRecord | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WorkspaceRecord | null>(null);
+  const [deepLinkId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("open");
+  });
+
+  // `?open=<id>` deep-links straight to a record drawer.
+  useEffect(() => {
+    if (!deepLinkId) return;
+    let cancelled = false;
+
+    WorkspaceService.getRecord(deptKey, moduleKey, deepLinkId)
+      .then((row) => {
+        if (!cancelled) setDetail(row);
+      })
+      .catch(() => {
+        // A stale or cross-tenant link simply does not open.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deepLinkId, deptKey, moduleKey]);
+
+  const closeDetail = () => {
+    setDetail(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("open")) {
+        url.searchParams.delete("open");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -360,18 +415,35 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  data-testid="record-row"
+                  data-record-id={row.id}
+                  tabIndex={0}
+                  className="cursor-pointer"
+                  onClick={() => setDetail(row)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setDetail(row);
+                    }
+                  }}
+                >
                   {columns.map((column) => (
                     <TableCell key={column.field}>
                       <CellValue
                         value={getPath(row, column.field)}
                         columnType={column.type}
-                        field={fieldMetaFor(entityMeta, column.field)}
+                        field={fieldMetaForColumn(entityMeta, column.field)}
                       />
                     </TableCell>
                   ))}
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
+                    <div
+                      className="flex items-center justify-end gap-1"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
                       <Button
                         variant="ghost"
                         size="icon"
@@ -439,7 +511,7 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
 
       <RecordDrawer
         open={Boolean(detail)}
-        onClose={() => setDetail(null)}
+        onClose={closeDetail}
         title={detail ? columnTitle(detail, columns) : definition.name}
         record={detail}
         meta={entityMeta}
@@ -447,6 +519,8 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
         deptKey={deptKey}
         moduleKey={moduleKey}
         canReassign={canEdit && entityMeta?.reassignable === true}
+        canEdit={canEdit}
+        attachmentsEnabled={definition.features?.attachments === true}
         onReassigned={handleReassigned}
       />
 
@@ -514,5 +588,5 @@ function columnTitle(
   const first = columns[0];
   const value = first ? getPath(row, first.field) : undefined;
   if (typeof value === "string" || typeof value === "number") return String(value);
-  return `record ${String(row.id).slice(0, 8)}`;
+  return "this record";
 }

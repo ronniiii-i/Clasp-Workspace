@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { FieldDefinition } from "./record-utils";
+import { RelationSelect } from "./RelationSelect";
 
 interface FieldControlProps {
   field: FieldDefinition;
@@ -72,7 +73,17 @@ export function FieldControl({
         ) : null}
       </Label>
 
-      {field.type === "textarea" ? (
+      {field.type === "relation" ? (
+        <RelationSelect
+          field={field}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          error={error}
+          disabled={disabled}
+          id={inputId}
+        />
+      ) : field.type === "textarea" ? (
         <Textarea
           id={inputId}
           value={String(value ?? "")}

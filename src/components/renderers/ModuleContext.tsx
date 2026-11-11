@@ -24,3 +24,8 @@ export function useModuleContext(): ModuleContextValue {
   }
   return context;
 }
+
+/** Context when a shared control may render outside a module provider. */
+export function useOptionalModuleContext(): ModuleContextValue | null {
+  return useContext(ModuleContext);
+}
