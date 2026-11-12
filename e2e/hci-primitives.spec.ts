@@ -77,20 +77,32 @@ test.describe('HCI primitives E2E', () => {
   test('relation selects search without exposing ids', async ({ page }) => {
     await signIn(page);
 
-    await page.goto(`${ACME_BASE}/dept/sales/contacts`);
+    // Project Management (tasks) has visible writable relations: Project and
+    // Assignee. Contacts only exposes its owner as a read-only field.
+    await page.goto(`${ACME_BASE}/dept/operations/project-management`);
+    await expect(
+      page.getByRole('region', { name: /Project Management/i }),
+    ).toBeVisible({ timeout: 20_000 });
     const create = page.getByRole('button', { name: /New|Add|Create/i }).first();
-    test.skip((await create.count()) === 0, 'No create action on Contacts');
+    test.skip(
+      (await create.count()) === 0,
+      'No create action on Project Management',
+    );
 
     await create.click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible({ timeout: 10_000 });
 
-    const combobox = dialog.getByRole('combobox').first();
+    const combobox = dialog.locator('input[role="combobox"]').first();
     test.skip((await combobox.count()) === 0, 'Form has no relation field');
 
     await combobox.fill('a');
-    const listbox = dialog.getByRole('listbox').first();
+    // The listbox is portalled to document.body, outside the dialog.
+    const listbox = page.getByRole('listbox').first();
     await expect(listbox).toBeVisible({ timeout: 10_000 });
+    await expect(listbox.getByRole('option').first()).toBeVisible({
+      timeout: 10_000,
+    });
     await expectNoUuidText(listbox, 'Relation select options');
   });
 });
