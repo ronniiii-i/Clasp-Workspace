@@ -519,3 +519,106 @@ export interface LeaveTransitionInput {
   action: LeaveAction;
   note?: string;
 }
+
+// Command palette search --------------------------------------------------
+
+export type SearchGroupType = "record" | "department" | "document";
+
+export interface SearchItem {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  updatedAt?: string | null;
+  /** Same-origin relative path the palette navigates to. */
+  href?: string | null;
+}
+
+export interface SearchGroup {
+  type: SearchGroupType;
+  moduleId?: string | null;
+  moduleKey?: string | null;
+  deptKey?: string | null;
+  moduleName?: string | null;
+  items: SearchItem[];
+}
+
+export interface SearchResult {
+  query: string;
+  groups: SearchGroup[];
+  tookMs: number;
+}
+
+export type SearchQueryOptions = {
+  limit?: number;
+  signal?: AbortSignal;
+};
+
+// Notifications -----------------------------------------------------------
+
+export const NOTIFICATION_TYPES = [
+  "TASK_ASSIGNED",
+  "LEAVE_SUBMITTED",
+  "LEAVE_PROGRESS",
+  "LEAVE_DECIDED",
+  "NEW_DEVICE",
+  "SYSTEM",
+] as const;
+
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export interface NotificationRecord {
+  id: string;
+  tenantId?: string;
+  userId?: string;
+  type: NotificationType | string;
+  title: string;
+  message: string;
+  link: string | null;
+  metadata: Record<string, unknown> | null;
+  dedupeKey?: string | null;
+  read: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  success: true;
+  notifications: NotificationRecord[];
+  unreadCount: number;
+}
+
+export interface NotificationUnreadResponse {
+  success: true;
+  unreadCount: number;
+}
+
+export interface NotificationPreference {
+  type: NotificationType;
+  inApp: boolean;
+  email: boolean;
+}
+
+export interface NotificationPreferencesResponse {
+  success: true;
+  preferences: NotificationPreference[];
+}
+
+export interface UpdateNotificationPreferencesInput {
+  preferences: Array<{
+    type: NotificationType;
+    inApp?: boolean;
+    email?: boolean;
+  }>;
+}
+
+export type NotificationStreamEvent =
+  | {
+      event: "ready";
+      data: { unreadCount: number; serverTime: string };
+    }
+  | { event: "notification"; id: string; data: NotificationRecord }
+  | {
+      event: "session";
+      data: { action: string; sessionId?: string | null };
+    }
+  | { event: "leave"; data: Record<string, unknown> };

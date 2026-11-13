@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { CommandPaletteProvider } from "@/components/providers/CommandPaletteProvider";
+import { NotificationsProvider } from "@/components/providers/NotificationsProvider";
 import { useAuthStore } from "@/stores/auth-store";
 import { isTenantAdminRole } from "@/lib/format";
 
@@ -39,5 +41,11 @@ export default function TenantAppClientLayout({
     return null;
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <NotificationsProvider>
+      <CommandPaletteProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </CommandPaletteProvider>
+    </NotificationsProvider>
+  );
 }

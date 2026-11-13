@@ -123,6 +123,10 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("open");
   });
+  const [createDeepLink] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("create") === "1";
+  });
 
   // `?open=<id>` deep-links straight to a record drawer.
   useEffect(() => {
@@ -203,6 +207,19 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
     setEditing(null);
     setDialogOpen(true);
   };
+
+  // `?create=1` from the command palette opens the create dialog once the
+  // module config and permissions have loaded.
+  useEffect(() => {
+    if (!createDeepLink || !canCreate) return;
+    setEditing(null);
+    setDialogOpen(true);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("create")) {
+      url.searchParams.delete("create");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [createDeepLink, canCreate]);
 
   const openEdit = (row: WorkspaceRecord) => {
     setDetail(null);
