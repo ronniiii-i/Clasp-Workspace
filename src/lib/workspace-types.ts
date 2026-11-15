@@ -23,6 +23,12 @@ export interface TableColumnConfig {
   sortable?: boolean;
   filterable?: boolean;
   width?: number;
+  /**
+   * Mobile priority. `primary` stays visible, `secondary` is kept when space
+   * allows and `optional` is hidden below the `sm` breakpoint. When omitted
+   * the renderer infers it from column order.
+   */
+  priority?: "primary" | "secondary" | "optional";
 }
 
 export interface TableFilterConfig {

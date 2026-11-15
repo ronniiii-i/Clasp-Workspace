@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { KanbanRenderer } from "@/components/renderers/KanbanRenderer";
 import {
   useWorkspaceRecords,
   useWorkspaceRecordMutations,
 } from "@/hooks/workspace/useWorkspaceRecords";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { KanbanConfig, ModuleDefinition } from "@/lib/workspace-types";
 import { buildEntityMeta, renderRenderer } from "./utils/renderers";
 
@@ -12,8 +13,13 @@ jest.mock("@/hooks/workspace/useWorkspaceRecords", () => ({
   useWorkspaceRecordMutations: jest.fn(),
 }));
 
+jest.mock("@/hooks/useMediaQuery", () => ({
+  useMediaQuery: jest.fn(),
+}));
+
 const mockRecords = useWorkspaceRecords as jest.Mock;
 const mockMutations = useWorkspaceRecordMutations as jest.Mock;
+const mockMediaQuery = useMediaQuery as jest.Mock;
 
 const config: KanbanConfig = {
   version: 1,
@@ -120,6 +126,7 @@ function renderBoard(actions: Array<"VIEW" | "CREATE" | "EDIT"> = [
 describe("KanbanRenderer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockMediaQuery.mockReturnValue(false);
     mockRecords.mockReturnValue({
       data: page,
       isPending: false,
@@ -217,5 +224,88 @@ describe("KanbanRenderer", () => {
       screen.getByRole("heading", { name: "New card" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Stage")).toHaveValue("Lead");
+  });
+
+  it("moves cards through the touch sheet on coarse pointers", async () => {
+    mockMediaQuery.mockReturnValue(true);
+    renderBoard();
+
+    // Drag affordances give way to an explicit 44px Move target.
+    expect(
+      screen.queryByRole("combobox", {
+        name: "Move Acme renewal to another column",
+      }),
+    ).not.toBeInTheDocument();
+
+    const trigger = screen.getByRole("button", {
+      name: "Move Acme renewal to another column",
+    });
+    expect(trigger).toHaveClass("min-h-11");
+
+    fireEvent.click(trigger);
+
+    expect(
+      screen.getByRole("dialog", { name: /Move “Acme renewal”/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Lead" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "Won" }));
+
+    await waitFor(() => {
+      expect(transition).toHaveBeenCalledWith(
+        { id: "deal-1", status: "Won" },
+        expect.any(Object),
+      );
+    });
+  });
+
+  it("opens the move sheet after a long press", () => {
+    jest.useFakeTimers();
+    mockMediaQuery.mockReturnValue(true);
+    try {
+      renderBoard();
+      const card = screen.getByText("Acme renewal").closest("article");
+      expect(card).not.toBeNull();
+
+      fireEvent.touchStart(card as HTMLElement);
+      act(() => {
+        jest.advanceTimersByTime(500);
+      });
+
+      expect(
+        screen.getByRole("dialog", { name: /Move “Acme renewal”/ }),
+      ).toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("supports keyboard move shortcuts", async () => {
+    renderBoard();
+
+    const card = screen.getByText("Acme renewal").closest("article");
+    expect(card).not.toBeNull();
+
+    fireEvent.keyDown(card as HTMLElement, { key: "M" });
+    expect(
+      screen.getByRole("dialog", { name: /Move “Acme renewal”/ }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    fireEvent.keyDown(card as HTMLElement, {
+      key: "ArrowRight",
+      ctrlKey: true,
+    });
+
+    await waitFor(() => {
+      expect(transition).toHaveBeenCalledWith(
+        { id: "deal-1", status: "Won" },
+        expect.any(Object),
+      );
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { DataTableRenderer } from "@/components/renderers/DataTableRenderer";
 import { useWorkspaceRecords, useWorkspaceRecordMutations } from "@/hooks/workspace/useWorkspaceRecords";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { WorkspaceService } from "@/services/workspace";
 import type { ModuleDefinition } from "@/lib/workspace-types";
 import {
@@ -13,8 +14,13 @@ jest.mock("@/hooks/workspace/useWorkspaceRecords", () => ({
   useWorkspaceRecordMutations: jest.fn(),
 }));
 
+jest.mock("@/hooks/useMediaQuery", () => ({
+  useMediaQuery: jest.fn(),
+}));
+
 const mockRecords = useWorkspaceRecords as jest.Mock;
 const mockMutations = useWorkspaceRecordMutations as jest.Mock;
+const mockMediaQuery = useMediaQuery as jest.Mock;
 
 const definition: ModuleDefinition = {
   id: "module-invoices",
@@ -90,6 +96,7 @@ function renderTable(actions: Array<"VIEW" | "CREATE" | "EDIT" | "DELETE"> = [
 describe("DataTableRenderer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockMediaQuery.mockReturnValue(false);
     mockRecords.mockReturnValue({
       data: page,
       isPending: false,
@@ -221,5 +228,41 @@ describe("DataTableRenderer", () => {
         expect.any(Object),
       );
     });
+  });
+
+  it("keeps a horizontally scrollable table with a sticky identifier column", () => {
+    renderTable();
+
+    expect(screen.getByRole("table")).toHaveClass("min-w-[720px]");
+
+    const identifier = screen.getByRole("columnheader", { name: /Invoice/ });
+    expect(identifier).toHaveClass("sticky", "left-0");
+
+    // Third and later columns are optional below `sm`.
+    expect(screen.getByRole("columnheader", { name: "Status" })).toHaveClass(
+      "hidden",
+      "sm:table-cell",
+    );
+    expect(screen.getByRole("columnheader", { name: /Amount/ })).not.toHaveClass(
+      "hidden",
+    );
+  });
+
+  it("collapses row actions into a touch menu on coarse pointers", () => {
+    mockMediaQuery.mockImplementation(
+      (query: string) => query === "(pointer: coarse)",
+    );
+    renderTable();
+
+    const trigger = screen.getByRole("button", {
+      name: "Actions for INV-1001",
+    });
+    expect(trigger).toHaveClass("size-11");
+    expect(
+      screen.queryByRole("button", { name: /View INV-1001/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Edit INV-1001/ }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 import { isTenantAdminRole } from "@/lib/format";
@@ -19,11 +21,22 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const router = useRouter();
+  const { user, isLoading } = useAuthStore();
   const isTenantAdmin = isTenantAdminRole(
     user?.role as unknown as { isTenantAdmin?: boolean; slug?: string } | string,
   );
-  const visibleTabs = isTenantAdmin ? tabs : tabs.slice(0, 1);
+
+  // Settings are administrator-only. The sidebar already hides them for
+  // everyone else, but a direct visit must not render the page.
+  useEffect(() => {
+    if (isLoading || !user) return;
+    if (isTenantAdmin) return;
+    toast.error("Settings are only available to tenant administrators.");
+    router.replace("/dashboard");
+  }, [isLoading, isTenantAdmin, router, user]);
+
+  if (isLoading || !user || !isTenantAdmin) return null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,8 +44,11 @@ export default function SettingsLayout({
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">Workspace configuration.</p>
       </div>
-      <nav className="flex flex-wrap gap-2 border-b border-border">
-        {visibleTabs.map((tab) => {
+      <nav
+        aria-label="Settings sections"
+        className="flex flex-wrap gap-2 border-b border-border"
+      >
+        {tabs.map((tab) => {
           const active = pathname === tab.href || pathname?.startsWith(tab.href + "/");
           return (
             <Link

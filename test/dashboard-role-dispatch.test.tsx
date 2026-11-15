@@ -76,6 +76,12 @@ jest.mock(
     SupportHodDashboard: () => <div>support-view</div>,
   }),
 );
+jest.mock(
+  '@/app/(dashboard-pages)/dashboard/_components/leave-approvals-widget',
+  () => ({
+    LeaveApprovalsWidget: () => <div>leave-approvals</div>,
+  }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { useAuth } = require('@/hooks/useAuth');

@@ -222,7 +222,17 @@ describe("CommandPalette", () => {
     expect(mockSearch).not.toHaveBeenCalled();
 
     await user.type(screen.getByTestId("command-palette-input"), "z");
-    expect(await screen.findByText(/No matches for/)).toBeVisible();
+    await waitFor(
+      () =>
+        expect(mockSearch).toHaveBeenCalledWith(
+          "zz",
+          expect.objectContaining({ limit: 5 }),
+        ),
+      { timeout: 5_000 },
+    );
+    expect(
+      await screen.findByText(/No matches for/, undefined, { timeout: 5_000 }),
+    ).toBeVisible();
   });
 
   it("offers Create record for the current module and deep-links with ?create=1", () => {

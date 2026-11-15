@@ -16,6 +16,7 @@ import { ItHodDashboard } from "./_components/it-hod-view";
 import { HrHodDashboard } from "./_components/hr-hod-view";
 import { SalesHodDashboard } from "./_components/sales-hod-view";
 import { SupportHodDashboard } from "./_components/support-hod-view";
+import { LeaveApprovalsWidget } from "./_components/leave-approvals-widget";
 import { roleSlug } from "@/lib/format";
 
 // Maps whatever the DB returns (human-readable name or enum key) to the
@@ -100,26 +101,40 @@ export default function DashboardPage() {
 
   if (isHod) {
     // One HOD view per department, all reading the same scoped endpoint.
-    switch (department) {
-      case Department.FINANCE:
-        return <FinanceHodDashboard department={Department.FINANCE} />;
-      case Department.ACCOUNTING:
-        return <FinanceHodDashboard department={Department.ACCOUNTING} />;
-      case Department.IT:
-        return <ItHodDashboard />;
-      case Department.HR:
-        return <HrHodDashboard />;
-      case Department.SALES:
-        return <SalesHodDashboard />;
-      case Department.CUSTOMER_SUPPORT:
-        return <SupportHodDashboard />;
-      default:
-        return <HodDashboard department={department} />;
-    }
+    const view = (() => {
+      switch (department) {
+        case Department.FINANCE:
+          return <FinanceHodDashboard department={Department.FINANCE} />;
+        case Department.ACCOUNTING:
+          return <FinanceHodDashboard department={Department.ACCOUNTING} />;
+        case Department.IT:
+          return <ItHodDashboard />;
+        case Department.HR:
+          return <HrHodDashboard />;
+        case Department.SALES:
+          return <SalesHodDashboard />;
+        case Department.CUSTOMER_SUPPORT:
+          return <SupportHodDashboard />;
+        default:
+          return <HodDashboard department={department} />;
+      }
+    })();
+
+    return (
+      <div className="space-y-6">
+        {view}
+        <LeaveApprovalsWidget />
+      </div>
+    );
   }
 
   if (isLead) {
-    return <TeamLeadDashboard teamId={user?.id ?? ""} />;
+    return (
+      <div className="space-y-6">
+        <TeamLeadDashboard teamId={user?.id ?? ""} />
+        <LeaveApprovalsWidget />
+      </div>
+    );
   }
 
   return <StaffDashboard userId={user?.id ?? ""} />;

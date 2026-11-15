@@ -5,6 +5,7 @@ import { DashboardSkeleton } from "./skeleton";
 import { DashboardEmpty, DashboardError } from "./dashboard-states";
 import { PersonalKPI } from "./personal-kpi";
 import { TasksWidget } from "./tasks-widget";
+import { MyTicketsWidget } from "./my-tickets-widget";
 import { LeaveStatus } from "./leave-status";
 
 export function StaffDashboard({ userId }: { userId: string }) {
@@ -41,8 +42,9 @@ export function StaffDashboard({ userId }: { userId: string }) {
       {/* Personal Metrics */}
       <PersonalKPI metrics={data.personalMetrics || []} />
 
-      {/* Tasks & Leave */}
+      {/* Tasks, tickets & leave */}
       <TasksWidget tasks={data.tasks || []} />
+      <MyTicketsWidget tickets={data.tickets || []} />
       <LeaveStatus requests={data.leaveRequests || []} />
     </div>
   );

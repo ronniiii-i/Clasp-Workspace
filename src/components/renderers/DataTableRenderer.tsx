@@ -7,12 +7,20 @@ import {
   ArrowUp,
   ChevronsUpDown,
   Eye,
+  MoreHorizontal,
   Pencil,
   Plus,
   Search,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
@@ -29,6 +37,7 @@ import {
   useWorkspaceRecordMutations,
   useWorkspaceRecords,
 } from "@/hooks/workspace/useWorkspaceRecords";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useModuleContext } from "./ModuleContext";
 import type { ModuleRendererProps } from "./types";
 import type {
@@ -39,6 +48,7 @@ import type {
   WorkspaceRecord,
 } from "@/lib/workspace-types";
 import { moduleLocation } from "@/lib/workspace-navigation";
+import { cn } from "@/lib/utils";
 import { CellValue } from "./shared/CellValue";
 import { ErrorState } from "./shared/ErrorState";
 import { RecordDrawer } from "./shared/RecordDrawer";
@@ -57,6 +67,56 @@ import { WorkspaceService } from "@/services/workspace";
 interface FilterState {
   field: string;
   value: string;
+}
+
+type ColumnPriority = "primary" | "secondary" | "optional";
+
+interface DisplayColumn {
+  field: string;
+  label: string;
+  type?: string;
+  sortable?: boolean;
+  width?: number;
+  priority: ColumnPriority;
+}
+
+/**
+ * Infer mobile priorities when the descriptor does not set them: the first
+ * column identifies the record, the second carries useful context and the rest
+ * are optional below the `sm` breakpoint.
+ */
+function withPriorities(
+  columns: Array<{
+    field: string;
+    label: string;
+    type?: string;
+    sortable?: boolean;
+    width?: number;
+    priority?: ColumnPriority;
+  }>,
+): DisplayColumn[] {
+  return columns.map((column, index) => ({
+    ...column,
+    priority:
+      column.priority ??
+      (index === 0 ? "primary" : index === 1 ? "secondary" : "optional"),
+  }));
+}
+
+function bodyCellClass(priority: ColumnPriority, isFirst: boolean) {
+  return cn(
+    priority === "optional" && "hidden sm:table-cell",
+    isFirst &&
+      "sticky left-0 z-10 bg-card group-hover:bg-muted/50 group-focus-within:bg-muted/50",
+  );
+}
+
+function headCellClass(priority: ColumnPriority, isFirst: boolean) {
+  return cn(
+    "sticky top-0 z-20 bg-card",
+    priority === "optional" && "hidden sm:table-cell",
+    isFirst && "left-0 z-30",
+  );
 }
 
 function filterOptions(
@@ -96,6 +156,9 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
       return [{ ...column, label: column.label || field?.label || column.field }];
     });
   }, [config.columns, entityMeta]);
+
+  const displayColumns = useMemo(() => withPriorities(columns), [columns]);
+  const isTouch = useMediaQuery("(pointer: coarse)");
 
   const filterDefs = useMemo<TableFilterConfig[]>(() => {
     if (config.filters.length > 0) return config.filters;
@@ -138,7 +201,13 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
         if (!cancelled) setDetail(row);
       })
       .catch(() => {
-        // A stale or cross-tenant link simply does not open.
+        if (cancelled) return;
+        toast.error("Record not found or unavailable.");
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("open");
+          window.history.replaceState({}, "", url.toString());
+        }
       });
 
     return () => {
@@ -360,11 +429,14 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <Table>
+      <div className="relative overflow-hidden rounded-lg border border-border bg-card">
+        <Table
+          className="min-w-[720px]"
+          containerClassName="max-h-[70vh] overflow-y-auto"
+        >
           <TableHeader>
             <TableRow>
-              {columns.map((column) => {
+              {displayColumns.map((column, index) => {
                 const active = sort?.field === column.field;
                 return (
                   <TableHead
@@ -377,6 +449,7 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
                           : "descending"
                         : "none"
                     }
+                    className={headCellClass(column.priority, index === 0)}
                   >
                     {column.sortable ? (
                       <button
@@ -404,15 +477,20 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
                   </TableHead>
                 );
               })}
-              <TableHead className="w-24 text-right">Actions</TableHead>
+              <TableHead className="sticky top-0 z-20 w-20 bg-card text-right">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {records.isPending ? (
               Array.from({ length: 5 }).map((_, rowIndex) => (
-                <TableRow key={`skeleton-${rowIndex}`}>
-                  {columns.map((column) => (
-                    <TableCell key={column.field}>
+                <TableRow key={`skeleton-${rowIndex}`} className="group">
+                  {displayColumns.map((column, index) => (
+                    <TableCell
+                      key={column.field}
+                      className={bodyCellClass(column.priority, index === 0)}
+                    >
                       <Skeleton className="h-4 w-24" />
                     </TableCell>
                   ))}
@@ -424,7 +502,7 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length + 1}
+                  colSpan={displayColumns.length + 1}
                   className="py-12 text-center text-sm text-muted-foreground"
                 >
                   No records match the current filters.
@@ -437,7 +515,7 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
                   data-testid="record-row"
                   data-record-id={row.id}
                   tabIndex={0}
-                  className="cursor-pointer"
+                  className="group cursor-pointer hover:bg-muted/50"
                   onClick={() => setDetail(row)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
@@ -446,8 +524,11 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
                     }
                   }}
                 >
-                  {columns.map((column) => (
-                    <TableCell key={column.field}>
+                  {displayColumns.map((column, index) => (
+                    <TableCell
+                      key={column.field}
+                      className={bodyCellClass(column.priority, index === 0)}
+                    >
                       <CellValue
                         value={getPath(row, column.field)}
                         columnType={column.type}
@@ -461,34 +542,75 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
                       onClick={(event) => event.stopPropagation()}
                       onKeyDown={(event) => event.stopPropagation()}
                     >
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`View ${columnTitle(row, columns)}`}
-                        onClick={() => setDetail(row)}
-                      >
-                        <Eye aria-hidden="true" />
-                      </Button>
-                      {canEdit ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Edit ${columnTitle(row, columns)}`}
-                          onClick={() => openEdit(row)}
-                        >
-                          <Pencil aria-hidden="true" />
-                        </Button>
-                      ) : null}
-                      {canDelete ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Delete ${columnTitle(row, columns)}`}
-                          onClick={() => setDeleteTarget(row)}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      ) : null}
+                      {isTouch ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-11 sm:size-9"
+                              aria-label={`Actions for ${columnTitle(row, displayColumns)}`}
+                            >
+                              <MoreHorizontal aria-hidden="true" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem onSelect={() => setDetail(row)}>
+                              <Eye className="size-4" aria-hidden="true" />
+                              View
+                            </DropdownMenuItem>
+                            {canEdit ? (
+                              <DropdownMenuItem onSelect={() => openEdit(row)}>
+                                <Pencil className="size-4" aria-hidden="true" />
+                                Edit
+                              </DropdownMenuItem>
+                            ) : null}
+                            {canDelete ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onSelect={() => setDeleteTarget(row)}
+                                >
+                                  <Trash2 className="size-4" aria-hidden="true" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`View ${columnTitle(row, displayColumns)}`}
+                            onClick={() => setDetail(row)}
+                          >
+                            <Eye aria-hidden="true" />
+                          </Button>
+                          {canEdit ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Edit ${columnTitle(row, displayColumns)}`}
+                              onClick={() => openEdit(row)}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </Button>
+                          ) : null}
+                          {canDelete ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Delete ${columnTitle(row, displayColumns)}`}
+                              onClick={() => setDeleteTarget(row)}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
+                          ) : null}
+                        </>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -496,6 +618,10 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
             )}
           </TableBody>
         </Table>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card to-transparent sm:hidden"
+        />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -529,7 +655,7 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
       <RecordDrawer
         open={Boolean(detail)}
         onClose={closeDetail}
-        title={detail ? columnTitle(detail, columns) : definition.name}
+        title={detail ? columnTitle(detail, displayColumns) : definition.name}
         record={detail}
         meta={entityMeta}
         onEdit={canEdit && detail ? () => openEdit(detail) : undefined}
@@ -588,7 +714,7 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
         <p className="text-sm text-muted-foreground">
           Delete{" "}
           <span className="font-medium text-foreground">
-            {deleteTarget ? columnTitle(deleteTarget, columns) : "this record"}
+            {deleteTarget ? columnTitle(deleteTarget, displayColumns) : "this record"}
           </span>
           ?
         </p>

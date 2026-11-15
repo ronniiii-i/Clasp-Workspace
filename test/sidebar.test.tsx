@@ -85,6 +85,8 @@ describe('Sidebar', () => {
     });
     expect(screen.getByText('Invoices')).toBeInTheDocument();
     expect(screen.getByText('Asset Management')).toBeInTheDocument();
+    // The legacy `/notifications` module is superseded by the account section.
+    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
   });
 
   it('does not render modules the user cannot access', async () => {

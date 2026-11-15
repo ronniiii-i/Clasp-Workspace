@@ -2,7 +2,7 @@
 
 import { Department, useDashboardData } from "../_hooks/use-dashboard-data";
 import { DepartmentMetrics } from "./department_metrics";
-import { SupportTickets } from "./support-tickets";
+import { MyTicketsWidget } from "./my-tickets-widget";
 import { TeamPerformanceWidget } from "./team-performance-widget";
 import { TaskProgress } from "./task-progress";
 import { DashboardSkeleton } from "./skeleton";
@@ -41,7 +41,7 @@ export function SupportHodDashboard() {
 
       <DepartmentMetrics metrics={data.metrics} />
 
-      <SupportTickets tickets={data.tickets || []} />
+      <MyTicketsWidget tickets={data.tickets || []} title="Support Tickets" />
 
       <div className="grid gap-4 md:grid-cols-2">
         <TeamPerformanceWidget
