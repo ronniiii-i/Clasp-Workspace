@@ -119,9 +119,9 @@ export default function DepartmentsPage() {
               <p className="text-xs font-medium text-muted-foreground">
                 Total Departments
               </p>
-              <p className="text-xl font-bold text-foreground">
+              <div className="text-xl font-bold text-foreground">
                 {loading ? <Skeleton className="h-6 w-12 mt-1" /> : format.number(summary.totalDepartments)}
-              </p>
+              </div>
             </div>
           </div>
         </Card>
@@ -135,9 +135,9 @@ export default function DepartmentsPage() {
               <p className="text-xs font-medium text-muted-foreground">
                 Total Members
               </p>
-              <p className="text-xl font-bold text-foreground">
+              <div className="text-xl font-bold text-foreground">
                 {loading ? <Skeleton className="h-6 w-12 mt-1" /> : format.number(summary.totalMembers)}
-              </p>
+              </div>
             </div>
           </div>
         </Card>
@@ -151,9 +151,9 @@ export default function DepartmentsPage() {
               <p className="text-xs font-medium text-muted-foreground">
                 Active Modules
               </p>
-              <p className="text-xl font-bold text-foreground">
+              <div className="text-xl font-bold text-foreground">
                 {loading ? <Skeleton className="h-6 w-12 mt-1" /> : format.number(summary.activeModules)}
-              </p>
+              </div>
             </div>
           </div>
         </Card>
@@ -167,9 +167,9 @@ export default function DepartmentsPage() {
               <p className="text-xs font-medium text-muted-foreground">
                 Pending Leave
               </p>
-              <p className="text-xl font-bold text-foreground">
+              <div className="text-xl font-bold text-foreground">
                 {loading ? <Skeleton className="h-6 w-12 mt-1" /> : format.number(summary.pendingLeave)}
-              </p>
+              </div>
             </div>
           </div>
         </Card>

@@ -65,8 +65,9 @@ test.describe('Stage 10 governance surfaces', () => {
     // Department overview links into a real detail page with ACL modules.
     await page.goto(`${ACME_BASE}/departments`);
     await expect(
-      page.getByRole('heading', { name: /Department Overviews/i }),
+      page.getByRole('heading', { name: 'Departments', level: 1 }),
     ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Total Departments')).toBeVisible();
     await page.getByRole('link', { name: /^Open$/ }).first().click();
     await expect(page).toHaveURL(/\/departments\/[^/]+$/, { timeout: 20_000 });
     await expect(

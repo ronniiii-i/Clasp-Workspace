@@ -230,7 +230,7 @@ function SafeRelationSelect({
           dataScope: "TENANT",
           actions: [],
           entityMeta: null,
-        } as ModuleDefinition,
+        } as unknown as ModuleDefinition,
         entityMeta: null,
         actions: new Set(),
         dataScope: "TENANT",
