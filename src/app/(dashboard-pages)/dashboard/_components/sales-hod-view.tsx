@@ -7,6 +7,7 @@ import { DepartmentComparisonChart } from "./department-comparison-chart";
 import { TeamPerformanceWidget } from "./team-performance-widget";
 import { DashboardSkeleton } from "./skeleton";
 import { DashboardEmpty, DashboardError } from "./dashboard-states";
+import { ModuleShortcuts } from "./module-shortcut";
 
 export function SalesHodDashboard() {
   const { data, isLoading, isError, error, refetch, isEmpty } =
@@ -38,6 +39,13 @@ export function SalesHodDashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Sales Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["deal"], label: "Deals" },
+          { keywords: ["lead"], label: "Leads" },
+          { keywords: ["task"], label: "Tasks" },
+        ]}
+      />
 
       <DepartmentMetrics metrics={data.metrics} />
 

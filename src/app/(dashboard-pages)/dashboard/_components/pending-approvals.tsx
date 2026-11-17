@@ -3,6 +3,7 @@
 import { Clock, Check, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Approval } from "../types";
+import { ModuleShortcut, useModulePathFor } from "./module-shortcut";
 
 // type Approval = {
 //   id: string;
@@ -12,6 +13,7 @@ import { Approval } from "../types";
 // };
 
 export function PendingApprovals({ approvals }: { approvals: Approval[] }) {
+  const leavePath = useModulePathFor(["leave", "approval"]);
   return (
     <Card>
       <CardHeader>
@@ -19,6 +21,7 @@ export function PendingApprovals({ approvals }: { approvals: Approval[] }) {
           <Clock className="h-5 w-5" />
           Pending Approvals
         </CardTitle>
+        <ModuleShortcut href={leavePath} label="Open leave requests" />
       </CardHeader>
       <CardContent className="space-y-3">
         {approvals.map((approval) => (

@@ -143,6 +143,8 @@ export function TasksWidget({ tasks }: TasksWidgetProps) {
                 tabIndex={0}
                 aria-label={`Open task ${task.title}`}
                 onClick={() => actions.openRecord(task.id)}
+                onMouseEnter={() => actions.prefetchRecord(task.id)}
+                onFocus={() => actions.prefetchRecord(task.id)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();

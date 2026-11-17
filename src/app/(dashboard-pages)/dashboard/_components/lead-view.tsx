@@ -6,6 +6,7 @@ import { DashboardEmpty, DashboardError } from "./dashboard-states";
 import { TeamPerformanceWidget } from "./team-performance-widget";
 import { TaskProgress } from "./task-progress";
 import { TeamAttendance } from "./team-attendance";
+import { ModuleShortcuts } from "./module-shortcut";
 
 export function TeamLeadDashboard({ teamId }: { teamId: string }) {
   const { data, isLoading, isError, error, refetch, isEmpty } =
@@ -37,6 +38,13 @@ export function TeamLeadDashboard({ teamId }: { teamId: string }) {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Team Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["task"], label: "Tasks" },
+          { keywords: ["leave"], label: "Leave approvals" },
+          { keywords: ["attendance"], label: "Attendance" },
+        ]}
+      />
 
       {/* Team Performance */}
       <TeamPerformanceWidget

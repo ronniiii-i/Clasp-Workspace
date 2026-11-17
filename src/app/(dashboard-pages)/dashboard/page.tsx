@@ -17,7 +17,9 @@ import { HrHodDashboard } from "./_components/hr-hod-view";
 import { SalesHodDashboard } from "./_components/sales-hod-view";
 import { SupportHodDashboard } from "./_components/support-hod-view";
 import { LeaveApprovalsWidget } from "./_components/leave-approvals-widget";
+import { QuickActionsBar } from "./_components/quick-actions-bar";
 import { roleSlug } from "@/lib/format";
+import type { ReactNode } from "react";
 
 // Maps whatever the DB returns (human-readable name or enum key) to the
 // Department enum that DashboardScope expects.
@@ -95,11 +97,11 @@ export default function DashboardPage() {
     return <DashboardSkeleton />;
   }
 
-  if (isAdmin) {
-    return <AdminDashboard />;
-  }
+  let content: ReactNode;
 
-  if (isHod) {
+  if (isAdmin) {
+    content = <AdminDashboard />;
+  } else if (isHod) {
     // One HOD view per department, all reading the same scoped endpoint.
     const view = (() => {
       switch (department) {
@@ -120,22 +122,27 @@ export default function DashboardPage() {
       }
     })();
 
-    return (
+    content = (
       <div className="space-y-6">
         {view}
         <LeaveApprovalsWidget />
       </div>
     );
-  }
-
-  if (isLead) {
-    return (
+  } else if (isLead) {
+    content = (
       <div className="space-y-6">
         <TeamLeadDashboard teamId={user?.id ?? ""} />
         <LeaveApprovalsWidget />
       </div>
     );
+  } else {
+    content = <StaffDashboard userId={user?.id ?? ""} />;
   }
 
-  return <StaffDashboard userId={user?.id ?? ""} />;
+  return (
+    <div className="space-y-6">
+      <QuickActionsBar />
+      {content}
+    </div>
+  );
 }

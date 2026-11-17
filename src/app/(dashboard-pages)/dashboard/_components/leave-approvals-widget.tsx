@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarClock, Check, Loader2, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CalendarClock, Check, ListTodo, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +55,7 @@ function isAwaitingDecision(
  */
 export function LeaveApprovalsWidget() {
   const { user } = useAuth();
+  const router = useRouter();
   const { modules } = usePermissions();
   const leaveModule = useMemo(
     () => modules.find((module) => module.targetEntity === "leave_requests"),
@@ -81,6 +84,13 @@ export function LeaveApprovalsWidget() {
   }, [user?.id, workflow.rows]);
 
   if (!leaveModule || pending.length === 0) return null;
+
+  const requestHref = (id: string) =>
+    `${leaveModule.path}${
+      leaveModule.path.includes("?") ? "&" : "?"
+    }open=${encodeURIComponent(id)}`;
+  const openRequest = (id: string) => router.push(requestHref(id));
+  const prefetchRequest = (id: string) => router.prefetch(requestHref(id));
 
   const close = () => {
     setDecision(null);
@@ -114,6 +124,12 @@ export function LeaveApprovalsWidget() {
           <CalendarClock className="size-5" aria-hidden="true" />
           Awaiting my approval ({pending.length})
         </CardTitle>
+        <Button asChild size="sm" variant="outline">
+          <Link href={leaveModule.path} prefetch>
+            <ListTodo className="mr-2 size-4" />
+            View all
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
@@ -124,7 +140,19 @@ export function LeaveApprovalsWidget() {
             return (
               <div
                 key={request.id}
-                className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                role="button"
+                tabIndex={0}
+                aria-label={`Open leave request from ${request.user?.name ?? "teammate"}`}
+                onClick={() => openRequest(request.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openRequest(request.id);
+                  }
+                }}
+                onMouseEnter={() => prefetchRequest(request.id)}
+                onFocus={() => prefetchRequest(request.id)}
+                className="flex cursor-pointer flex-col gap-2 rounded-lg border border-border p-3 transition-colors hover:border-ring hover:bg-accent/40 focus-visible:border-ring focus-visible:outline-none sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -157,7 +185,8 @@ export function LeaveApprovalsWidget() {
                     variant="outline"
                     className="min-h-11 min-w-11"
                     disabled={busy}
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
                       setDecision({ request, action: "REJECT" });
                       setNote("");
                     }}
@@ -169,7 +198,8 @@ export function LeaveApprovalsWidget() {
                     size="sm"
                     className="min-h-11 min-w-11"
                     disabled={busy}
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
                       setDecision({ request, action: "APPROVE" });
                       setNote("");
                     }}

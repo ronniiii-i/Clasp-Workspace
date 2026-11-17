@@ -139,6 +139,8 @@ export function MyTicketsWidget({
                 tabIndex={0}
                 aria-label={`Open ticket ${ticket.subject}`}
                 onClick={() => actions.openRecord(ticket.id)}
+                onMouseEnter={() => actions.prefetchRecord(ticket.id)}
+                onFocus={() => actions.prefetchRecord(ticket.id)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();

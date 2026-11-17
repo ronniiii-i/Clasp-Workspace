@@ -1,9 +1,16 @@
+import type { ReactNode } from "react";
 import type { ModuleDefinition } from "@/lib/workspace-types";
 import { getIconComponent } from "@/lib/icon-mappings";
 import { DataScopeBadge } from "./DataScopeBadge";
 
 /** Shared module chrome: icon, title, context and effective scope. */
-export function ModuleHeader({ definition }: { definition: ModuleDefinition }) {
+export function ModuleHeader({
+  definition,
+  action,
+}: {
+  definition: ModuleDefinition;
+  action?: ReactNode;
+}) {
   const Icon = getIconComponent(definition.icon);
   const contextLabel = [definition.department?.name, definition.group]
     .filter(Boolean)
@@ -25,10 +32,13 @@ export function ModuleHeader({ definition }: { definition: ModuleDefinition }) {
             ) : null}
           </div>
         </div>
-        <DataScopeBadge
-          scope={definition.dataScope}
-          departmentName={definition.department?.name}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {action}
+          <DataScopeBadge
+            scope={definition.dataScope}
+            departmentName={definition.department?.name}
+          />
+        </div>
       </div>
       {definition.description ? (
         <p className="max-w-3xl text-sm text-muted-foreground">

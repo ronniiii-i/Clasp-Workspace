@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Modal } from "@/components/ui/modal";
 import { AuditDiff } from "@/components/audit/AuditDiff";
+import { ConfigureModuleButton } from "@/components/renderers/shared/ConfigureModuleDrawer";
 import { AttachModulesModal } from "@/components/departments/CreateDepartmentWizard";
 import {
   getDepartmentsOverview,
@@ -366,11 +367,22 @@ export default function DepartmentDetailPage() {
                         {module.path}
                       </CardDescription>
                     </div>
-                    {module.type && (
-                      <Badge variant="outline" className="text-[10px]">
-                        {module.type}
-                      </Badge>
-                    )}
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      {module.type && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {module.type}
+                        </Badge>
+                      )}
+                      {isTenantAdmin ? (
+                        <ConfigureModuleButton
+                          deptKey={department.key}
+                          moduleKey={
+                            module.key ?? module.path.split("/").filter(Boolean).pop() ?? ""
+                          }
+                          variant="ghost"
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </CardHeader>
 

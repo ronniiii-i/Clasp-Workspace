@@ -38,6 +38,19 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Legacy account URLs now live under /account. Keep them as permanent
+      // server-side redirects so old bookmarks and deep links resolve before
+      // any client bundle or dashboard data loads.
+      {
+        source: "/profile",
+        destination: "/account/profile",
+        permanent: true,
+      },
+      {
+        source: "/notifications",
+        destination: "/account/notifications",
+        permanent: true,
+      },
       {
         source: "/register",
         destination: "/create-workspace",

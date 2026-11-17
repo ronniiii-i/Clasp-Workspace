@@ -6,6 +6,7 @@ import { TeamPerformanceWidget } from "./team-performance-widget";
 import { BudgetAlerts } from "./budget-alerts";
 import { DashboardSkeleton } from "./skeleton";
 import { DashboardEmpty, DashboardError } from "./dashboard-states";
+import { ModuleShortcuts } from "./module-shortcut";
 
 /**
  * Fallback department view for HODs whose department has no bespoke widget
@@ -43,6 +44,13 @@ export function HodDashboard({ department }: { department?: Department }) {
       <h1 className="text-2xl font-bold">
         {department ? `${department} Dashboard` : "Department Dashboard"}
       </h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["task"], label: "Tasks" },
+          { keywords: ["leave"], label: "Leave approvals" },
+          { keywords: ["user"], label: "Team" },
+        ]}
+      />
       <DepartmentMetrics metrics={data.metrics} />
       <TeamPerformanceWidget
         teams={data.teamMetrics || data.teamMetric || []}

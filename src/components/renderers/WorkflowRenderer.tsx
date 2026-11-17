@@ -323,6 +323,7 @@ export function WorkflowRenderer({ definition }: ModuleRendererProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const handledOpenRef = useRef<string | null>(null);
+  const handledCreateRef = useRef(false);
 
   const userId = user?.id;
   const admin = isTenantAdmin(user ?? null);
@@ -331,6 +332,7 @@ export function WorkflowRenderer({ definition }: ModuleRendererProps) {
     (config.allowCreate ?? true) && (can("CREATE") || can("EDIT"));
 
   const openId = searchParams.get("open");
+  const createParam = searchParams.get("create");
   const timeline = useLeaveTimeline(
     deptKey,
     moduleKey,
@@ -393,6 +395,21 @@ export function WorkflowRenderer({ definition }: ModuleRendererProps) {
     toast.error("Record not found or unavailable.");
     router.replace(pathname);
   }, [openId, rows, records.isPending, router, pathname]);
+
+  // Deep link: /module?create=1 opens the leave request modal. This powers the
+  // "Request Leave" dashboard quick action and clears the param afterwards.
+  useEffect(() => {
+    if (createParam !== "1") {
+      handledCreateRef.current = false;
+      return;
+    }
+    if (!canCreate || handledCreateRef.current) return;
+    handledCreateRef.current = true;
+    setForm(EMPTY_FORM);
+    setFormError(null);
+    setCreateOpen(true);
+    router.replace(pathname);
+  }, [createParam, canCreate, router, pathname]);
 
   const closeDetail = () => {
     setDetail(null);

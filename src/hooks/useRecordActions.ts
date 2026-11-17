@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -53,6 +53,27 @@ export function useRecordActions({
   const [error, setError] = useState<string | null>(null);
   const [reassignTarget, setReassignTarget] =
     useState<ReassignTarget | null>(null);
+  const prefetchedPaths = useRef<Set<string>>(new Set());
+
+  const recordHref = useCallback(
+    (id: string) =>
+      `/dept/${encodeURIComponent(deptKey)}/${encodeURIComponent(
+        moduleKey,
+      )}?open=${encodeURIComponent(id)}`,
+    [deptKey, moduleKey],
+  );
+
+  /** Warm the ?open= drawer route on row hover/focus for instant navigation. */
+  const prefetchRecord = useCallback(
+    (id: string) => {
+      if (!deptKey || !moduleKey || !id) return;
+      const href = recordHref(id);
+      if (prefetchedPaths.current.has(href)) return;
+      prefetchedPaths.current.add(href);
+      router.prefetch(href);
+    },
+    [deptKey, moduleKey, recordHref, router],
+  );
 
   const invalidate = useCallback(() => {
     void queryClient.invalidateQueries({
@@ -139,19 +160,16 @@ export function useRecordActions({
   const openRecord = useCallback(
     (id: string) => {
       if (!deptKey || !moduleKey || !id) return;
-      router.push(
-        `/dept/${encodeURIComponent(deptKey)}/${encodeURIComponent(
-          moduleKey,
-        )}?open=${encodeURIComponent(id)}`,
-      );
+      router.push(recordHref(id));
     },
-    [deptKey, moduleKey, router],
+    [deptKey, moduleKey, recordHref, router],
   );
 
   return {
     complete,
     reassign,
     openRecord,
+    prefetchRecord,
     busyId,
     error,
     setError,

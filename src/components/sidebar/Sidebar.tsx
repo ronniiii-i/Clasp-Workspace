@@ -29,6 +29,13 @@ import { SidebarLink } from "./SidebarLink";
 import { useSidebar } from "./SidebarProvider";
 
 const COLLAPSED_GROUPS_KEY = "sidebar_collapsed_groups";
+const NAV_MODE_KEY = "sidebar_nav_mode";
+
+type NavMode = "executive" | "operator";
+
+function readNavMode(raw: string | null): NavMode {
+  return raw === "operator" ? "operator" : "executive";
+}
 
 function staticModule(
   name: string,
@@ -93,6 +100,7 @@ export function Sidebar() {
   const { open, close } = useSidebar();
   const activeRef = useRef<HTMLAnchorElement>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [navMode, setNavMode] = useState<NavMode>("executive");
   const [hydrated, setHydrated] = useState(false);
 
   const tenantPath = stripTenantPrefix(pathname || "/", tenant);
@@ -101,6 +109,9 @@ export function Sidebar() {
       | { isTenantAdmin?: boolean; slug?: string }
       | string,
   );
+  // Admin-only view preference. It changes navigation density only — backend
+  // permissions are untouched, so Cmd+K and deep links work in either mode.
+  const executiveMode = isTenantAdmin && navMode === "executive";
 
   const navModules = useMemo(() => {
     const list = [...(modules ?? [])].filter(
@@ -133,6 +144,7 @@ export function Sidebar() {
         const parsed = JSON.parse(raw) as Record<string, boolean>;
         if (parsed && typeof parsed === "object") setCollapsed(parsed);
       }
+      setNavMode(readNavMode(window.localStorage.getItem(NAV_MODE_KEY)));
     } catch {
       // Ignore malformed persisted state.
     }
@@ -150,6 +162,15 @@ export function Sidebar() {
       // Storage may be unavailable in private modes.
     }
   }, [collapsed, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(NAV_MODE_KEY, navMode);
+    } catch {
+      // Storage may be unavailable in private modes.
+    }
+  }, [navMode, hydrated]);
 
   // The active department always expands when navigation changes.
   useEffect(() => {
@@ -179,6 +200,9 @@ export function Sidebar() {
   };
 
   const dashboardActive = isModuleActive(tenantPath, DASHBOARD_LINK.path);
+  const activeAdminLink = ADMIN_LINKS.find((item) =>
+    isModuleActive(tenantPath, item.path),
+  );
 
   return (
     <>
@@ -216,6 +240,39 @@ export function Sidebar() {
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
+
+        {isTenantAdmin ? (
+          <div className="border-b border-border px-3 py-2">
+            <div
+              className="flex items-center justify-between gap-2"
+              role="group"
+              aria-label="Sidebar view mode"
+            >
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                View
+              </span>
+              <div className="inline-flex rounded-md border border-border bg-muted/40 p-0.5">
+                {(["executive", "operator"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setNavMode(mode)}
+                    aria-pressed={navMode === mode}
+                    className={cn(
+                      "rounded px-2 py-1 text-xs font-medium capitalize transition-colors",
+                      navMode === mode
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
           <ul className="flex flex-col gap-1">
             <SidebarLink
@@ -224,18 +281,34 @@ export function Sidebar() {
               activeRef={dashboardActive ? activeRef : undefined}
             />
           </ul>
-          <ul className="mt-3 flex flex-col gap-3">
-            {groups.map((group) => (
-              <SidebarGroup
-                key={group.key}
-                group={group}
-                open={!collapsed[group.key]}
-                isActive={(href) => isModuleActive(tenantPath, href)}
-                onToggle={() => toggleGroup(group.key)}
-                activeRef={activeRef}
-              />
-            ))}
-          </ul>
+          {executiveMode ? (
+            <ul className="mt-3 flex flex-col gap-1">
+              {ADMIN_LINKS.map((item) => {
+                const active = activeAdminLink?.path === item.path;
+                return (
+                  <SidebarLink
+                    key={item.path}
+                    module={item}
+                    active={active}
+                    activeRef={active ? activeRef : undefined}
+                  />
+                );
+              })}
+            </ul>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-3">
+              {groups.map((group) => (
+                <SidebarGroup
+                  key={group.key}
+                  group={group}
+                  open={!collapsed[group.key]}
+                  isActive={(href) => isModuleActive(tenantPath, href)}
+                  onToggle={() => toggleGroup(group.key)}
+                  activeRef={activeRef}
+                />
+              ))}
+            </ul>
+          )}
         </nav>
         <div className="border-t border-border px-3 py-3">
           <DropdownMenu>

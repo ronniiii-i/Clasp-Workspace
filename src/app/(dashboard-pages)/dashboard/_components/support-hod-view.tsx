@@ -7,6 +7,7 @@ import { TeamPerformanceWidget } from "./team-performance-widget";
 import { TaskProgress } from "./task-progress";
 import { DashboardSkeleton } from "./skeleton";
 import { DashboardEmpty, DashboardError } from "./dashboard-states";
+import { ModuleShortcuts } from "./module-shortcut";
 
 export function SupportHodDashboard() {
   const { data, isLoading, isError, error, refetch, isEmpty } =
@@ -38,6 +39,13 @@ export function SupportHodDashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Customer Support Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["ticket"], label: "Tickets" },
+          { keywords: ["task"], label: "Tasks" },
+          { keywords: ["leave"], label: "Leave requests" },
+        ]}
+      />
 
       <DepartmentMetrics metrics={data.metrics} />
 

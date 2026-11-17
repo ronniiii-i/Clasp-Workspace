@@ -82,6 +82,14 @@ jest.mock(
     LeaveApprovalsWidget: () => <div>leave-approvals</div>,
   }),
 );
+// QuickActionsBar reads the ACL query cache; role dispatch does not depend on
+// it, so stub it out instead of wiring a QueryClientProvider into this suite.
+jest.mock(
+  '@/app/(dashboard-pages)/dashboard/_components/quick-actions-bar',
+  () => ({
+    QuickActionsBar: () => <div>quick-actions</div>,
+  }),
+);
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { useAuth } = require('@/hooks/useAuth');

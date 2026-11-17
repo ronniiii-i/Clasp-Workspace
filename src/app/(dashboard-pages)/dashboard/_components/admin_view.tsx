@@ -8,6 +8,7 @@ import { DepartmentComparisonChart } from "./department-comparison-chart";
 import { AuditLog } from "./audit-log";
 import { PendingApprovals } from "./pending-approvals";
 import { SystemAlerts } from "./system-alerts";
+import { ModuleShortcuts } from "./module-shortcut";
 
 export function AdminDashboard() {
   const { data, isLoading, isError, error, refetch, isEmpty } =
@@ -36,6 +37,14 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { href: "/departments", label: "Departments" },
+          { href: "/user-management", label: "User management" },
+          { href: "/audit-log", label: "Audit log" },
+          { keywords: ["deal"], label: "Deals" },
+        ]}
+      />
 
       {/* Global KPIs */}
       <OrganizationMetrics metrics={data.metrics} />

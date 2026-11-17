@@ -7,6 +7,7 @@ import { TrainingManagement } from "./training-management";
 import { PerformanceReviews } from "./performance-reviews";
 import { DashboardSkeleton } from "./skeleton";
 import { DashboardEmpty, DashboardError } from "./dashboard-states";
+import { ModuleShortcuts } from "./module-shortcut";
 import { Department } from "../_hooks/use-dashboard-data";
 
 export function HrHodDashboard() {
@@ -39,6 +40,13 @@ export function HrHodDashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">HR Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["leave"], label: "Leave requests" },
+          { keywords: ["user"], label: "Employees" },
+          { keywords: ["task"], label: "Tasks" },
+        ]}
+      />
 
       {/* Core Widgets */}
       <RecruitmentPipeline jobs={data.jobOpenings || []} />

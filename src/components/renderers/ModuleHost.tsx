@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useModuleDefinition } from "@/hooks/workspace/useModuleDefinition";
 import { ApiError } from "@/services/api-client";
+import { useAuthStore } from "@/stores/auth-store";
+import { isTenantAdminRole } from "@/lib/format";
 import type { Permission } from "@/lib/modules";
 import { ModuleProvider } from "./ModuleContext";
 import { getRenderer } from "./registry";
@@ -11,6 +13,7 @@ import { ErrorState } from "./shared/ErrorState";
 import { ModuleHeader } from "./shared/ModuleHeader";
 import { RendererErrorBoundary } from "./shared/RendererErrorBoundary";
 import { RendererSkeleton } from "./shared/RendererSkeleton";
+import { ConfigureModuleButton } from "./shared/ConfigureModuleDrawer";
 
 const KEY_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -65,6 +68,8 @@ export function ModuleHost({
 }) {
   const valid =
     KEY_PATTERN.test(deptKey) && KEY_PATTERN.test(moduleKey);
+  const user = useAuthStore((state) => state.user);
+  const isTenantAdmin = isTenantAdminRole(user?.role);
   const query = useModuleDefinition(
     valid ? deptKey : "",
     valid ? moduleKey : "",
@@ -105,7 +110,14 @@ export function ModuleHost({
 
   return (
     <div className="flex flex-col gap-6">
-      <ModuleHeader definition={definition} />
+      <ModuleHeader
+        definition={definition}
+        action={
+          isTenantAdmin ? (
+            <ConfigureModuleButton deptKey={deptKey} moduleKey={moduleKey} />
+          ) : undefined
+        }
+      />
       <RendererErrorBoundary>
         <ModuleProvider value={contextValue}>
           {Renderer ? (

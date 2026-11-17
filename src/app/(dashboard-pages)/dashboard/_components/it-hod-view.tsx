@@ -7,6 +7,7 @@ import { TechnologyInventory } from "./technology-inventory";
 import { SecurityDashboard } from "./security-dashboard";
 import { DashboardSkeleton } from "./skeleton";
 import { DashboardEmpty, DashboardError } from "./dashboard-states";
+import { ModuleShortcuts } from "./module-shortcut";
 import { Department } from "../_hooks/use-dashboard-data";
 
 export function ItHodDashboard() {
@@ -39,6 +40,13 @@ export function ItHodDashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">IT Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["ticket"], label: "Tickets" },
+          { keywords: ["task"], label: "Tasks" },
+          { keywords: ["document"], label: "Documents" },
+        ]}
+      />
 
       {/* Core Widgets */}
       <SystemHealth

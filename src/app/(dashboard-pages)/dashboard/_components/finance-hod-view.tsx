@@ -8,6 +8,7 @@ import { TaxManagement } from "./tax-management";
 import { AuditTrails } from "./audit-trails";
 import { DashboardSkeleton } from "./skeleton";
 import { DashboardEmpty, DashboardError } from "./dashboard-states";
+import { ModuleShortcuts } from "./module-shortcut";
 
 /**
  * Finance and Accounting share the same widget set (per the spec, the
@@ -53,6 +54,13 @@ export function FinanceHodDashboard({
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">{title}</h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["budget", "expense"], label: "Budgets" },
+          { keywords: ["invoice"], label: "Invoices" },
+          { keywords: ["deal"], label: "Deals" },
+        ]}
+      />
 
       {/* Core Widgets */}
       <FinancialOverview metrics={data.metrics} />

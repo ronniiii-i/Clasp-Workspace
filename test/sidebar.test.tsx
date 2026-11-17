@@ -80,6 +80,10 @@ describe('Sidebar', () => {
 
     render(<Sidebar />);
 
+    // Administrators start in the compact Executive view; department groups
+    // appear once they switch to Operator mode.
+    await userEvent.click(screen.getByRole('button', { name: /operator/i }));
+
     await waitFor(() => {
       expect(screen.getByText('Dashboard')).toBeInTheDocument();
     });
@@ -173,6 +177,8 @@ describe('Sidebar', () => {
       setSession(buildUser({ role: 'ADMIN' }));
 
       render(<Sidebar />);
+
+      await userEvent.click(screen.getByRole('button', { name: /operator/i }));
 
       await waitFor(() => {
         expect(screen.getByText('Invoices')).toBeInTheDocument();

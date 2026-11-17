@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
@@ -80,6 +80,15 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [recents, setRecents] = useState<CommandPaletteRecent[]>([]);
+  const prefetchedPaths = useRef<Set<string>>(new Set());
+
+  /** Warm a result's route once on hover/keyboard highlight, not on every render. */
+  const prefetchHref = (href: string | null | undefined) => {
+    const safe = safePath(href);
+    if (!safe || prefetchedPaths.current.has(safe)) return;
+    prefetchedPaths.current.add(safe);
+    router.prefetch(safe);
+  };
 
   const isAdmin = isTenantAdminRole(user?.role);
   const trimmed = query.trim();
@@ -308,10 +317,38 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   const groups = serverGroups;
 
+  /** cmdk highlights by value, so map every option value to its target route. */
+  const hrefByValue = useMemo(() => {
+    const map = new Map<string, string>();
+    const put = (value: string, href: string | null | undefined) => {
+      const safe = safePath(href);
+      if (safe) map.set(value, safe);
+    };
+    for (const recent of visibleRecents) {
+      put(`recent:${recent.kind}:${recent.id}`, recent.href);
+    }
+    for (const navModule of navigation) {
+      put(`module:${navModule.id}`, navModule.path);
+    }
+    for (const group of groups) {
+      for (const item of group.items) {
+        put(
+          `${group.type}:${group.moduleKey ?? ""}:${item.id}`,
+          item.href ?? groupFallbackHref(group),
+        );
+      }
+    }
+    for (const action of actions) {
+      put(`action:${action.id}`, action.href);
+    }
+    return map;
+  }, [visibleRecents, navigation, groups, actions]);
+
   return (
     <Command.Dialog
       open={open}
       onOpenChange={onOpenChange}
+      onValueChange={(value) => prefetchHref(hrefByValue.get(value))}
       label="Command palette"
       shouldFilter={false}
       loop
@@ -351,6 +388,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 key={`recent:${recent.kind}:${recent.id}`}
                 value={`recent:${recent.kind}:${recent.id}`}
                 onSelect={() => selectRecent(recent)}
+                onMouseEnter={() => prefetchHref(recent.href)}
+                onFocus={() => prefetchHref(recent.href)}
                 className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground"
               >
                 <ArrowRight
@@ -377,6 +416,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 key={`module:${module.id}`}
                 value={`module:${module.id}`}
                 onSelect={() => selectModule(module)}
+                onMouseEnter={() => prefetchHref(module.path)}
+                onFocus={() => prefetchHref(module.path)}
                 className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground"
               >
                 <ArrowRight
@@ -436,6 +477,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               <Command.Item
                 key={`${group.type}:${group.moduleKey ?? ""}:${item.id}`}
                 value={`${group.type}:${group.moduleKey ?? ""}:${item.id}`}
+                onMouseEnter={() =>
+                  prefetchHref(item.href ?? groupFallbackHref(group))
+                }
+                onFocus={() =>
+                  prefetchHref(item.href ?? groupFallbackHref(group))
+                }
                 onSelect={() =>
                   select({
                     id: item.id,
@@ -491,6 +538,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     const href = safePath(action.href);
                     if (href) router.push(href);
                   }}
+                  onMouseEnter={() => prefetchHref(action.href)}
+                  onFocus={() => prefetchHref(action.href)}
                   className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm aria-selected:bg-accent aria-selected:text-accent-foreground"
                 >
                   <Icon

@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
   Search,
-  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -44,8 +42,10 @@ import type {
 import { moduleLocation } from "@/lib/workspace-navigation";
 import { WorkspaceService } from "@/services/workspace";
 import { MarkdownContent } from "./shared/MarkdownContent";
+import { RichTextEditor } from "./shared/RichTextEditor";
 import { ErrorState } from "./shared/ErrorState";
 import { formatRelative } from "@/lib/format";
+import { isRichTextEmpty } from "@/lib/rich-text-markdown";
 
 const STATUSES: DocumentStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 
@@ -120,7 +120,6 @@ export function DocumentRenderer({ definition }: ModuleRendererProps) {
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editor, setEditor] = useState<EditorState>(() => emptyEditor(config));
-  const [preview, setPreview] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
 
   const [archiveTarget, setArchiveTarget] = useState<DocumentRecord | null>(null);
@@ -136,7 +135,6 @@ export function DocumentRenderer({ definition }: ModuleRendererProps) {
 
   const openCreate = () => {
     setEditor(emptyEditor(config));
-    setPreview(false);
     setEditorError(null);
     setEditorOpen(true);
   };
@@ -144,7 +142,6 @@ export function DocumentRenderer({ definition }: ModuleRendererProps) {
   const openEdit = (doc: DocumentRecord) => {
     setReaderId(null);
     setEditorError(null);
-    setPreview(false);
     setEditor(editorFrom(doc));
     setEditorOpen(true);
 
@@ -170,7 +167,11 @@ export function DocumentRenderer({ definition }: ModuleRendererProps) {
       setEditorError("Title is required.");
       return;
     }
-    if (editor.content.trim().length === 0) {
+    const emptyContent =
+      editor.format === "RICH_TEXT"
+        ? isRichTextEmpty(editor.content)
+        : editor.content.trim().length === 0;
+    if (emptyContent) {
       setEditorError("Content is required.");
       return;
     }
@@ -561,53 +562,21 @@ export function DocumentRenderer({ definition }: ModuleRendererProps) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="document-content">Content</Label>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setPreview((current) => !current)}
-              >
-                {preview ? (
-                  <>
-                    <X aria-hidden="true" />
-                    Write
-                  </>
-                ) : (
-                  <>
-                    <Eye aria-hidden="true" />
-                    Preview
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {preview ? (
-              <div className="min-h-40 rounded-md border border-input bg-background px-3 py-2">
-                <MarkdownContent
-                  content={editor.content || "_Nothing to preview yet._"}
-                  format={editor.format}
-                />
-              </div>
-            ) : (
-              <Textarea
-                id="document-content"
-                value={editor.content}
-                onChange={(event) =>
-                  setEditor((current) => ({
-                    ...current,
-                    content: event.target.value,
-                  }))
-                }
-                placeholder={
-                  editor.format === "RICH_TEXT"
-                    ? "<p>Write formatted content…</p>"
-                    : "# Heading\n\nWrite markdown content…"
-                }
-                className="min-h-48 font-mono text-xs"
-              />
-            )}
+            <Label htmlFor="document-content">Content</Label>
+            <RichTextEditor
+              key={`${editor.id ?? "new"}:${editor.format}`}
+              id="document-content"
+              value={editor.content}
+              format={editor.format}
+              placeholder={
+                editor.format === "RICH_TEXT"
+                  ? "Write formatted content…"
+                  : "# Heading\n\nWrite markdown content…"
+              }
+              onChange={(content) =>
+                setEditor((current) => ({ ...current, content }))
+              }
+            />
           </div>
 
           {editorError ? (

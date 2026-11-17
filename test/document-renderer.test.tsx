@@ -173,6 +173,9 @@ describe("DocumentRenderer", () => {
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Expenses policy" },
     });
+    // The WYSIWYG editor renders a contenteditable region; switch to its
+    // Markdown source view to edit the stored canonical value directly.
+    fireEvent.click(screen.getByRole("button", { name: /^Markdown$/ }));
     fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "# Expenses" },
     });

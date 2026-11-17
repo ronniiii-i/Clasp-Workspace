@@ -7,6 +7,7 @@ import { PersonalKPI } from "./personal-kpi";
 import { TasksWidget } from "./tasks-widget";
 import { MyTicketsWidget } from "./my-tickets-widget";
 import { LeaveStatus } from "./leave-status";
+import { ModuleShortcuts } from "./module-shortcut";
 
 export function StaffDashboard({ userId }: { userId: string }) {
   const { data, isLoading, isError, error, refetch, isEmpty } =
@@ -38,6 +39,13 @@ export function StaffDashboard({ userId }: { userId: string }) {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">My Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { keywords: ["task"], label: "My tasks" },
+          { keywords: ["ticket"], label: "My tickets" },
+          { keywords: ["leave"], label: "Leave requests" },
+        ]}
+      />
 
       {/* Personal Metrics */}
       <PersonalKPI metrics={data.personalMetrics || []} />
