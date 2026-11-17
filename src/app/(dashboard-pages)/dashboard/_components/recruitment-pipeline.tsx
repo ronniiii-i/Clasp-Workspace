@@ -10,10 +10,10 @@ interface JobOpeningProps {
 
 export function RecruitmentPipeline({ jobs }: JobOpeningProps) {
   const stages = [
-    { id: "sourcing", name: "Sourcing", color: "bg-blue-100" },
-    { id: "interviewing", name: "Interviewing", color: "bg-purple-100" },
-    { id: "offer", name: "Offer", color: "bg-yellow-100" },
-    { id: "filled", name: "Filled", color: "bg-green-100" },
+    { id: "sourcing", name: "Sourcing", color: "bg-blue-100 dark:bg-blue-950" },
+    { id: "interviewing", name: "Interviewing", color: "bg-purple-100 dark:bg-purple-950" },
+    { id: "offer", name: "Offer", color: "bg-yellow-100 dark:bg-yellow-950" },
+    { id: "filled", name: "Filled", color: "bg-green-100 dark:bg-green-950" },
   ];
 
   return (
@@ -30,7 +30,7 @@ export function RecruitmentPipeline({ jobs }: JobOpeningProps) {
                 {jobs
                   .filter(job => job.status === stage.id)
                   .map(job => (
-                    <div key={job.id} className="bg-white p-3 rounded border">
+                    <div key={job.id} className="bg-card p-3 rounded border">
                       <p className="font-medium">{job.title}</p>
                       <div className="flex justify-between items-center mt-2">
                         <Badge variant="outline">{job.department}</Badge>

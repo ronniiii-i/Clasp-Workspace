@@ -56,7 +56,7 @@ export function DepartmentComparisonChart({
                   `$${value.toLocaleString()}`,
                 ]}
               />
-              <Bar dataKey="revenue" fill="#3b82f6" radius={8} />
+              <Bar dataKey="revenue" fill="var(--chart-2)" radius={8} />
             </BarChart>
           </ChartContainer>
         </div>

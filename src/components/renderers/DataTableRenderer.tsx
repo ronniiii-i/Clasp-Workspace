@@ -456,6 +456,9 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
       </div>
 
       <div className="relative overflow-hidden rounded-lg border border-border bg-card">
+        <div className="sr-only" role="status" aria-live="polite">
+          {records.isPending ? "Loading records" : `${rows.length} records loaded`}
+        </div>
         <Table
           className="min-w-[720px]"
           containerClassName="max-h-[70vh] overflow-y-auto"
@@ -508,7 +511,7 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
               </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody aria-busy={records.isPending}>
             {records.isPending ? (
               Array.from({ length: 5 }).map((_, rowIndex) => (
                 <TableRow key={`skeleton-${rowIndex}`} className="group">

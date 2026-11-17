@@ -15,6 +15,8 @@ export function RendererSkeleton({ type }: { type?: ModuleType }) {
   return (
     <div
       className="flex flex-col gap-4"
+      role="status"
+      aria-live="polite"
       aria-busy="true"
       aria-label={type ? TYPE_LABELS[type] : "Loading module"}
     >

@@ -1,7 +1,7 @@
 // next-sitemap.config.js
 /** @type {import('next-sitemap').IConfig} */
 module.exports = {
-  siteUrl: "https://claspworkspace.work.gd",
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://claspworkspace.com",
   generateRobotsTxt: true,
   robotsTxtOptions: {
     policies: [
@@ -21,7 +21,6 @@ module.exports = {
         ],
       },
     ],
-    additionalSitemaps: ["https://claspworkspace.work.gd/sitemap.xml"],
   },
 };
 // This is the configuration file for next-sitemap, a library to generate sitemaps and robots.txt files for Next.js applications.

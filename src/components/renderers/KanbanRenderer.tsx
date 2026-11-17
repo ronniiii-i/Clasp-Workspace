@@ -529,7 +529,13 @@ export function KanbanRenderer({ definition }: ModuleRendererProps) {
       </div>
 
       {records.isPending ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label="Loading board"
+        >
           {columns.map((column) => (
             <div
               key={column.value}

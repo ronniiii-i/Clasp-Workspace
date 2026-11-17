@@ -24,7 +24,7 @@ export function Gauge({
 
   return (
     <div className={`relative ${sizeClasses[size]} ${className}`}>
-      <div className="absolute inset-0 bg-gray-200 rounded-full overflow-hidden">
+      <div className="absolute inset-0 bg-muted rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full ${
             percentage >= 80

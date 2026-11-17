@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://claspworkspace.work.gd";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://claspworkspace.com";
 const AUTHOR_NAME = "Princess Roni Egbu";
 const AUTHOR_URL = "https://roniegbu.vercel.app";
 

@@ -32,7 +32,7 @@ export function PerformanceReviews({ reviews }: PerformanceReviewProps) {
                 <TableCell>{review.position}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <div className="w-16 bg-gray-100 rounded-full h-2.5">
+                    <div className="w-16 bg-muted rounded-full h-2.5">
                       <div 
                         className={`h-2.5 rounded-full ${
                           review.rating >= 4 ? 'bg-green-500' :
@@ -46,7 +46,7 @@ export function PerformanceReviews({ reviews }: PerformanceReviewProps) {
                 </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 text-xs rounded-full ${
-                    review.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    review.status === 'completed' ? 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300' : 'bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-300'
                   }`}>
                     {review.status}
                   </span>

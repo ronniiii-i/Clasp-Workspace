@@ -48,13 +48,13 @@ export function BudgetVarianceChart({ data }: BudgetDataProps) {
             <Legend />
             <Bar
               dataKey="planned"
-              fill="hsl(212 95% 68%)"
+              fill="var(--chart-1)"
               name="Planned"
               radius={4}
             />
             <Bar
               dataKey="actual"
-              fill="hsl(221.2 83.2% 53.3%)"
+              fill="var(--chart-2)"
               name="Actual"
               radius={4}
             />

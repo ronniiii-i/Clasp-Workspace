@@ -80,15 +80,28 @@ test.describe('Command palette and notifications', () => {
     await expect(dialog).toBeVisible();
 
     const input = page.getByTestId('command-palette-input');
+    // The backend search is tenant-scoped across several modules; on a cold
+    // dev server it can take a few seconds. Wait for the response itself
+    // rather than a fixed text deadline, then target the option by role so a
+    // re-render cannot swap the result under a bare text locator.
+    const searchResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/workspace/search') &&
+        response.status() === 200,
+      { timeout: 30_000 },
+    );
     await input.fill('chloe');
-    await expect(page.getByText('Chloe Dubois').first()).toBeVisible({
-      timeout: 15_000,
-    });
-
-    await page.getByText('Chloe Dubois').first().click();
-    await page.waitForURL(/\/dept\/administration\/vendor-management\?open=/, {
-      timeout: 20_000,
-    });
+    await searchResponse;
+    const vendorResult = dialog
+      .getByRole('option')
+      .filter({ hasText: 'Chloe Dubois' })
+      .first();
+    await expect(vendorResult).toBeVisible({ timeout: 30_000 });
+    await vendorResult.click();
+    await expect(page).toHaveURL(
+      /\/dept\/administration\/vendor-management\?open=/,
+      { timeout: 30_000 },
+    );
     await expect(dialog).toBeHidden();
 
     // The bell is present in the shell and opens a labelled dialog.

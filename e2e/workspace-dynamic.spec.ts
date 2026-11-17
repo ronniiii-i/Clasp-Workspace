@@ -80,6 +80,13 @@ test.describe('Dynamic workspace E2E', () => {
     await signIn(page, ACME_BASE, ACME_EMAIL, ACME_PASSWORD);
     await expect(page).not.toHaveURL(/\/login/);
 
+    // The Stage 11A shell defaults admins to the condensed Executive view;
+    // switch to Operator to assert the full department module tree.
+    const operator = page.getByRole('button', { name: 'operator' });
+    await expect(operator).toBeVisible();
+    await operator.click();
+    await expect(operator).toHaveAttribute('aria-pressed', 'true');
+
     // Sidebar should show dynamic modules grouped by department
     await expect(page.locator('nav')).toBeVisible();
     await expect(page.getByRole('link', { name: /Contacts/i })).toBeVisible();

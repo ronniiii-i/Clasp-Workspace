@@ -45,10 +45,10 @@ export function TaxManagement({ taxes }: { taxes: TaxRecord[] }) {
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
                       tax.status === "paid"
-                        ? "bg-green-100 text-green-800"
+                        ? "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300"
                         : tax.status === "pending"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
+                        ? "bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-300"
+                        : "bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300"
                     }`}
                   >
                     {tax.status}

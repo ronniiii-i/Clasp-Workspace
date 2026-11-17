@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun, Monitor, Lock, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,45 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark", icon: Moon },
   { value: "system", label: "System", icon: Monitor },
 ] as const;
+
+function NotificationToggle({
+  label,
+  description,
+  defaultOn,
+}: {
+  label: string;
+  description: string;
+  defaultOn: boolean;
+}) {
+  const [enabled, setEnabled] = useState(defaultOn);
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setEnabled((value) => !value)}
+        aria-label={`Toggle ${label}`}
+        aria-pressed={enabled}
+        className={cn(
+          "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          enabled ? "bg-primary" : "bg-muted",
+        )}
+      >
+        <span
+          className={cn(
+            "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+            enabled ? "translate-x-4" : "translate-x-1",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -46,7 +86,9 @@ export default function SettingsPage() {
             {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
+                type="button"
                 onClick={() => setTheme(value)}
+                aria-pressed={theme === value}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium transition-colors",
                   theme === value
@@ -103,6 +145,7 @@ export default function SettingsPage() {
           </p>
         </div>
         <div className="p-5 space-y-4">
+          {/* Local-only until notification preferences are backed by the API. */}
           {[
             {
               label: "In-app notifications",
@@ -120,30 +163,12 @@ export default function SettingsPage() {
               defaultOn: true,
             },
           ].map(({ label, description, defaultOn }) => (
-            <div
+            <NotificationToggle
               key={label}
-              className="flex items-center justify-between gap-4"
-            >
-              <div>
-                <p className="text-sm font-medium">{label}</p>
-                <p className="text-xs text-muted-foreground">{description}</p>
-              </div>
-              {/* Placeholder toggle — wire to backend when notification prefs are built */}
-              <button
-                className={cn(
-                  "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none",
-                  defaultOn ? "bg-primary" : "bg-muted",
-                )}
-                aria-label={`Toggle ${label}`}
-              >
-                <span
-                  className={cn(
-                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-                    defaultOn ? "translate-x-4" : "translate-x-1",
-                  )}
-                />
-              </button>
-            </div>
+              label={label}
+              description={description}
+              defaultOn={defaultOn}
+            />
           ))}
         </div>
       </section>

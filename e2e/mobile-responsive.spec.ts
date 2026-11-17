@@ -272,6 +272,13 @@ test.describe('Responsive shell', () => {
       page.getByRole('button', { name: 'Open command palette' }),
     ).toBeVisible();
 
+    // Executive is the default view; the full department tree (including
+    // Contacts) is only rendered in Operator mode.
+    const operator = sidebar.getByRole('button', { name: 'operator' });
+    await expect(operator).toBeVisible();
+    await operator.click();
+    await expect(operator).toHaveAttribute('aria-pressed', 'true');
+
     // Tenant admins see the admin destinations (the seeded ACL lists them
     // under Workspace, so the pinned `Administration` copies are deduped).
     await expect(

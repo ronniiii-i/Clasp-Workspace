@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isTopDialog, useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface ModalProps {
   open: boolean;
@@ -20,7 +21,7 @@ interface ModalProps {
  *
  * Radix's dialog package is not part of this project, so this implementation
  * keeps the same visual language while handling the essentials: portal,
- * Escape, overlay click, scroll lock, and focus on open.
+ * Escape, overlay click, scroll lock, focus trap, and focus restoration.
  */
 export function Modal({
   open,
@@ -32,24 +33,25 @@ export function Modal({
   className,
 }: ModalProps) {
   const [mounted, setMounted] = React.useState(false);
-  const panelRef = React.useRef<HTMLDivElement>(null);
+  // The panel is portalled only after mount, so activation waits for both
+  // flags; otherwise an initially-open dialog would never register a trap.
+  const panelRef = useFocusTrap<HTMLDivElement>(mounted && open);
 
   React.useEffect(() => setMounted(true), []);
 
   React.useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && isTopDialog(panelRef.current)) onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open, onClose, panelRef]);
 
   if (!mounted || !open) return null;
 

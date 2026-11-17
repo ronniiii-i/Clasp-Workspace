@@ -263,7 +263,15 @@ export function RecordDrawer({
               </dl>
             </DrawerSection>
           </div>
-        ) : null}
+        ) : (
+          <div
+            role="status"
+            className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground"
+          >
+            This record is no longer available. It may have been deleted or
+            moved. Close this panel and select another record.
+          </div>
+        )}
       </Modal>
 
       <RecordReassignDialog

@@ -27,7 +27,7 @@ export function EmployeeRecords({ employees }: { employees: Employee[] }) {
         {employees.map((employee) => (
           <div
             key={employee.id}
-            className="flex items-center gap-4 p-2 hover:bg-gray-50 rounded-lg"
+            className="flex items-center gap-4 p-2 hover:bg-muted rounded-lg"
           >
             <Avatar>
               <AvatarImage src={employee.avatar} />
@@ -47,10 +47,10 @@ export function EmployeeRecords({ employees }: { employees: Employee[] }) {
             <span
               className={`px-3 py-1 rounded-full text-xs ${
                 employee.status === "active"
-                  ? "bg-green-100 text-green-800"
+                  ? "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300"
                   : employee.status === "on-leave"
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-red-100 text-red-800"
+                  ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300"
+                  : "bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300"
               }`}
             >
               {employee.status}

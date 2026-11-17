@@ -36,12 +36,12 @@ export function PasswordStrength({ password }: { password: string }) {
           <div
             key={i}
             className={`flex-1 rounded-full ${
-              i <= strength ? strengthColors[strength] : "bg-gray-200"
+              i <= strength ? strengthColors[strength] : "bg-muted"
             }`}
           />
         ))}
       </div>
-      <div className="text-xs text-gray-600">
+      <div className="text-xs text-muted-foreground">
         {password ? (
           <>
             Strength: {strengthText[strength]}

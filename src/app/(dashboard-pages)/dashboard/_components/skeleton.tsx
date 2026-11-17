@@ -44,7 +44,13 @@ function TableSkeleton({ rows = 4 }: { rows?: number }) {
 
 export function DashboardSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse-subtle">
+    <div
+      className="space-y-6 animate-pulse-subtle"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading dashboard"
+    >
       {/* Page header */}
       <div className="space-y-1">
         <Skeleton className="h-7 w-48" />
