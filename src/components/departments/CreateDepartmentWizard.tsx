@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   BookUser,
@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   Layers,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
@@ -27,11 +28,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { RelationSelect } from "@/components/renderers/shared/RelationSelect";
 import { ModuleProvider, useOptionalModuleContext } from "@/components/renderers/ModuleContext";
 import type { FieldDefinition } from "@/components/renderers/shared/record-utils";
-import { createDepartment, provisionDepartmentModules } from "@/services/departments";
+import {
+  createDepartment,
+  provisionDepartmentModules,
+  type DepartmentModuleSummary,
+} from "@/services/departments";
+import type { ModuleDefinition } from "@/lib/workspace-types";
 
 export interface DepartmentModuleTemplateDef {
   key: string;
@@ -39,7 +44,7 @@ export interface DepartmentModuleTemplateDef {
   description: string;
   category: "records" | "people" | "finance" | "operations" | "documents";
   type: string;
-  icon: any;
+  icon: LucideIcon;
   recommendedRoles: string[];
 }
 
@@ -208,18 +213,27 @@ function SafeRelationSelect({
           key: "tasks",
           name: "Tasks",
           path: "/dept/operations/tasks",
-          type: "DATA_TABLE" as any,
+          icon: "users",
+          group: "Workspace",
+          order: 0,
+          type: "DATA_TABLE",
           targetEntity: "tasks",
-          config: { version: 1, entity: "tasks", columns: [] } as any,
+          config: { version: 1, entity: "tasks", columns: [] },
           isNavigable: false,
           description: null,
-          department: { id: "operations", key: "operations", name: "Operations" } as any,
-          dataScope: "TENANT" as any,
+          department: {
+            id: "operations",
+            key: "operations",
+            name: "Operations",
+            sortOrder: 0,
+          },
+          dataScope: "TENANT",
           actions: [],
-        },
+          entityMeta: null,
+        } as ModuleDefinition,
         entityMeta: null,
         actions: new Set(),
-        dataScope: "TENANT" as any,
+        dataScope: "TENANT",
         can: () => true,
       }}
     >
@@ -369,8 +383,9 @@ export function CreateDepartmentWizard({
           : `/departments/${key}`;
         router.push(targetPath);
       }
-    } catch (err: any) {
-      const message = err?.message || "Failed to create department.";
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create department.";
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -703,7 +718,7 @@ export interface AttachModulesModalProps {
   onClose: () => void;
   deptId: string;
   deptKey: string;
-  onProvisioned?: (created: any[]) => void;
+  onProvisioned?: (created: DepartmentModuleSummary[]) => void;
 }
 
 export function AttachModulesModal({
@@ -760,8 +775,8 @@ export function AttachModulesModal({
       );
       onClose();
       onProvisioned?.(res.created ?? []);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to attach modules.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to attach modules.");
     } finally {
       setSubmitting(false);
     }

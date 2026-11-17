@@ -50,6 +50,16 @@ export interface CreateDepartmentInput {
   moduleTemplates?: string[];
 }
 
+export interface DepartmentModuleSummary {
+  id: string;
+  key: string;
+  name: string;
+  path: string;
+  type?: string;
+  targetEntity?: string | null;
+  departmentId?: string | null;
+}
+
 export interface CreateDepartmentResult {
   success: boolean;
   department: {
@@ -60,13 +70,8 @@ export interface CreateDepartmentResult {
     sortOrder: number;
     managerId: string | null;
   };
-  createdModules?: Array<{
-    id: string;
-    key: string;
-    name: string;
-    path: string;
-  }>;
-  skippedModules?: string[];
+  created: DepartmentModuleSummary[];
+  skipped: string[];
 }
 
 export interface ProvisionModulesInput {
@@ -76,15 +81,7 @@ export interface ProvisionModulesInput {
 
 export interface ProvisionModulesResult {
   success: boolean;
-  created: Array<{
-    id: string;
-    key: string;
-    name: string;
-    path: string;
-    type: string;
-    targetEntity: string | null;
-    departmentId: string | null;
-  }>;
+  created: DepartmentModuleSummary[];
   skipped: string[];
   departmentId: string;
 }
@@ -92,24 +89,33 @@ export interface ProvisionModulesResult {
 export interface TrashItem {
   entity: string;
   id: string;
-  name?: string;
-  title?: string;
-  deletedAt: string;
-  deletedBy?: {
+  /** Human label derived by the backend (never a raw id). */
+  label: string;
+  deletedAt: string | null;
+  deletedBy: {
     id: string;
     name: string;
   } | null;
-  [key: string]: unknown;
+  /** Original module path, when the entity is still attached to a module. */
+  modulePath: string | null;
+}
+
+export interface TrashQuery {
+  entity?: string;
+  q?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface TrashResult {
   success: boolean;
   data: TrashItem[];
   counts: Record<string, number>;
-  meta?: {
-    total: number;
+  meta: {
     page: number;
     pageSize: number;
+    total: number;
+    totalPages: number;
   };
 }
 
@@ -139,9 +145,9 @@ export async function createDepartment(
 
 export async function provisionDepartmentModules(
   deptId: string,
-  payload: ProvisionModulesInput | { templates: string[] },
+  payload: ProvisionModulesInput,
 ): Promise<ProvisionModulesResult> {
-  const templates = "templates" in payload && payload.templates ? payload.templates : payload.moduleTemplates ?? [];
+  const templates = payload.templates ?? payload.moduleTemplates ?? [];
   return apiRequest<ProvisionModulesResult>(
     `/workspace/departments/${encodeURIComponent(deptId)}/modules`,
     {
@@ -155,9 +161,7 @@ export async function provisionDepartmentModules(
   );
 }
 
-export async function getTrash(
-  query?: Record<string, unknown>,
-): Promise<TrashResult> {
+export async function getTrash(query?: TrashQuery): Promise<TrashResult> {
   const params = new URLSearchParams();
   if (query) {
     Object.entries(query).forEach(([key, val]) => {

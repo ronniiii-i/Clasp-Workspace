@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/shared/ExportButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -246,12 +247,29 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
     [filters],
   );
 
+  // Dotted columns such as `actor.name` read included relation objects; ask
+  // the backend for exactly those relations instead of returning bare ids.
+  const relationIncludes = useMemo(() => {
+    const relations = new Set(
+      (entityMeta?.fields ?? [])
+        .filter((field) => field.relation)
+        .map((field) => field.name),
+    );
+    const included = new Set<string>();
+    for (const column of displayColumns) {
+      const [head] = column.field.split(".");
+      if (head && relations.has(head)) included.add(head);
+    }
+    return Array.from(included);
+  }, [displayColumns, entityMeta]);
+
   const records = useWorkspaceRecords(deptKey, moduleKey, {
     search: search || undefined,
     page,
     pageSize: config.pageSize || 25,
     sort,
     filters: queryFilters,
+    include: relationIncludes.length > 0 ? relationIncludes : undefined,
   });
 
   const { create, update, remove } = useWorkspaceRecordMutations(
@@ -419,6 +437,14 @@ export function DataTableRenderer({ definition }: ModuleRendererProps) {
             <span className="text-xs text-muted-foreground">
               {meta.total} record{meta.total === 1 ? "" : "s"}
             </span>
+          ) : null}
+          {entityMeta?.exportable ? (
+            <ExportButton
+              deptKey={deptKey}
+              moduleKey={moduleKey}
+              filters={queryFilters}
+              sort={sort}
+            />
           ) : null}
           {canCreate ? (
             <Button size="sm" onClick={openCreate}>

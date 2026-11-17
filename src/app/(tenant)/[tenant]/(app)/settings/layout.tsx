@@ -12,6 +12,7 @@ const tabs = [
   { name: "General", href: "/settings" },
   { name: "Departments", href: "/settings/departments" },
   { name: "Roles & Permissions", href: "/settings/roles" },
+  { name: "Trash", href: "/settings/trash" },
   { name: "Billing", href: "/settings/billing" },
 ];
 

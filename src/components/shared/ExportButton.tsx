@@ -51,6 +51,7 @@ export function ExportButton({
       const response = await fetch(url, {
         method: "GET",
         headers,
+        credentials: "include",
       });
 
       if (!response.ok) {

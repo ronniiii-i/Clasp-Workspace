@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { AuditDiff } from "@/components/audit/AuditDiff";
 import type { EntityMeta, WorkspaceRecord } from "@/lib/workspace-types";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { CellValue } from "./CellValue";
@@ -65,6 +66,8 @@ export function RecordDrawer({
 }) {
   const [reassignOpen, setReassignOpen] = useState(false);
 
+  const isAudit = meta?.key === "audit_logs";
+
   const fields =
     meta?.fields.filter(
       (field) => !field.relation && !isHiddenField(field.name, field),
@@ -83,7 +86,9 @@ export function RecordDrawer({
     (field) =>
       !field.reference &&
       !displayFields.has(field.name) &&
-      field.name !== "customFields",
+      field.name !== "customFields" &&
+      // Audit payloads are rendered as a before/after diff below.
+      !(isAudit && (field.name === "before" || field.name === "after")),
   );
 
   const customFields = customFieldEntries(record?.customFields);
@@ -185,6 +190,15 @@ export function RecordDrawer({
               </DrawerSection>
             ) : null}
 
+            {isAudit ? (
+              <DrawerSection title="Changes">
+                <AuditDiff
+                  before={asDiffObject(record.before)}
+                  after={asDiffObject(record.after)}
+                />
+              </DrawerSection>
+            ) : null}
+
             {customFields.length > 0 ? (
               <DrawerSection title="Custom fields">
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -272,6 +286,12 @@ export function RecordDrawer({
       />
     </>
   );
+}
+
+/** Audit JSON columns are objects; strings/arrays are not diffable. */
+function asDiffObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
 }
 
 /** Reference-aware scalar read for the summary/details sections. */

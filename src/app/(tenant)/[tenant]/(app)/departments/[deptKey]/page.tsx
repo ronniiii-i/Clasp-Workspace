@@ -1,31 +1,21 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowUpRight,
-  Boxes,
-  Building2,
-  CalendarClock,
-  CheckSquare,
+  Clock,
   Edit,
   FolderKanban,
   History,
   Layers,
-  MoreVertical,
   Plus,
-  RefreshCw,
-  RotateCcw,
-  Settings,
   Trash2,
   Users,
-  AlertCircle,
-  Clock,
-  UserCheck,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,25 +24,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Modal } from "@/components/ui/modal";
 import { AuditDiff } from "@/components/audit/AuditDiff";
-import {
-  AttachModulesModal,
-  MODULE_CATALOGUE,
-} from "@/components/departments/CreateDepartmentWizard";
+import { AttachModulesModal } from "@/components/departments/CreateDepartmentWizard";
 import {
   getDepartmentsOverview,
   getDepartmentSummary,
-  getTrash,
-  restoreTrash,
-  purgeTrash,
   type DepartmentOverview,
-  type TrashItem,
 } from "@/services/departments";
-import { apiRequest } from "@/services/api-client";
+import { WorkspaceService } from "@/services/workspace";
+import { useAccessibleModules } from "@/hooks/useAccessibleModules";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceFormat } from "@/hooks/useWorkspaceFormat";
+import { isTenantAdminRole } from "@/lib/format";
+import type { WorkspaceRecord } from "@/lib/workspace-types";
 
-interface AuditEntry {
-  id: string;
+interface AuditEntry extends WorkspaceRecord {
   action: string;
   entity: string;
   actor?: {
@@ -65,191 +50,105 @@ interface AuditEntry {
   after?: Record<string, unknown> | null;
 }
 
-interface DepartmentMember {
-  id: string;
-  name: string;
-  email: string;
-  role?: string;
-  status?: string;
-}
-
-interface ProvisionedModule {
-  id: string;
-  key: string;
-  name: string;
-  path: string;
-  type: string;
-  description?: string;
-}
+const AUDIT_MODULE_KEY = "audit-log";
+const WORKSPACE_DEPT_KEY = "workspace";
 
 export default function DepartmentDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const format = useWorkspaceFormat();
   const user = useAuthStore((state) => state.user);
 
   const tenantSlug = (params?.tenant as string) ?? "";
   const deptKey = (params?.deptKey as string) ?? "";
 
-  const isTenantAdmin =
-    user?.role === "TENANT_ADMIN" ||
-    user?.role === "tenant_admin" ||
-    (typeof user?.role === "object" &&
-      (user?.role?.slug === "tenant_admin" || Boolean(user?.role?.isTenantAdmin)));
+  const isTenantAdmin = isTenantAdminRole(user?.role);
+
+  const { modules: accessibleModules } = useAccessibleModules();
+  const canViewAudit = useMemo(
+    () => accessibleModules.some((module) => module.key === AUDIT_MODULE_KEY),
+    [accessibleModules],
+  );
 
   const [department, setDepartment] = useState<DepartmentOverview | null>(null);
-  const [members, setMembers] = useState<DepartmentMember[]>([]);
-  const [modules, setModules] = useState<ProvisionedModule[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditEntry | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Modals
   const [attachModalOpen, setAttachModalOpen] = useState(false);
-  const [trashModalOpen, setTrashModalOpen] = useState(false);
-  const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
-  const [trashLoading, setTrashLoading] = useState(false);
 
-  const loadDepartmentData = async () => {
+  const loadDepartmentData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const overviewRes = await getDepartmentsOverview();
       const currentDept = overviewRes.departments.find(
-        (d) => d.key.toLowerCase() === deptKey.toLowerCase(),
+        (entry) => entry.key.toLowerCase() === deptKey.toLowerCase(),
       );
 
       if (!currentDept) {
-        setError(`Department "${deptKey}" not found.`);
-        setLoading(false);
+        setError(`Department "${deptKey}" was not found.`);
+        setDepartment(null);
         return;
       }
 
       setDepartment(currentDept);
 
-      // Attempt to load detailed summary or department specifics if available
       try {
         const summaryRes = await getDepartmentSummary(currentDept.id);
         if (summaryRes.department) {
-          setDepartment((prev) => ({ ...prev, ...summaryRes.department }));
+          setDepartment((prev) =>
+            prev ? { ...prev, ...summaryRes.department } : summaryRes.department,
+          );
         }
       } catch {
-        // Fallback to overview data
+        // The overview payload is already complete enough to render.
       }
 
-      // Try fetching members and provisioned modules for department
-      try {
-        const modulesRes = await apiRequest<{ modules: ProvisionedModule[] }>(
-          `/workspace/modules?deptKey=${encodeURIComponent(deptKey)}`,
-        );
-        if (modulesRes?.modules) {
-          setModules(modulesRes.modules);
-        } else {
-          deriveDefaultModules(currentDept.key);
-        }
-      } catch {
-        deriveDefaultModules(currentDept.key);
+      if (!canViewAudit) {
+        setAuditLogs([]);
+        return;
       }
 
-      // Try fetching audit activity
       try {
-        const auditRes = await apiRequest<{ logs: AuditEntry[] }>(
-          `/departments/${encodeURIComponent(currentDept.id)}/audit`,
+        const page = await WorkspaceService.listRecords<AuditEntry>(
+          WORKSPACE_DEPT_KEY,
+          AUDIT_MODULE_KEY,
+          {
+            filters: [
+              { field: "departmentId", op: "eq", value: currentDept.id },
+            ],
+            sort: { field: "createdAt", dir: "desc" },
+            include: ["actor"],
+            pageSize: 20,
+          },
         );
-        if (auditRes?.logs) {
-          setAuditLogs(auditRes.logs.slice(0, 20));
-        } else {
-          setSampleAuditLogs(currentDept);
-        }
+        setAuditLogs(page.data);
       } catch {
-        setSampleAuditLogs(currentDept);
+        // Audit visibility can lag ACL changes; an empty feed is not fatal.
+        setAuditLogs([]);
       }
-    } catch (err: any) {
-      setError(err?.message || "Failed to load department.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load department.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const deriveDefaultModules = (key: string) => {
-    // Derive provisioned modules from catalogue for UI demonstration
-    const sample = MODULE_CATALOGUE.slice(0, 3).map((tpl) => ({
-      id: `${key}-${tpl.key}`,
-      key: tpl.key,
-      name: tpl.name,
-      path: `/dept/${key}/${tpl.key}`,
-      type: tpl.type,
-      description: tpl.description,
-    }));
-    setModules(sample);
-  };
-
-  const setSampleAuditLogs = (dept: DepartmentOverview) => {
-    setAuditLogs([
-      {
-        id: "audit-1",
-        action: "PROVISION_MODULES",
-        entity: "department",
-        actor: dept.manager ?? { id: "u-1", name: "System Admin" },
-        createdAt: dept.activity?.lastAuditAt || new Date().toISOString(),
-        before: { activeModules: (dept.counts?.activeModules ?? 1) - 1 },
-        after: { activeModules: dept.counts?.activeModules ?? 1 },
-      },
-      {
-        id: "audit-2",
-        action: "UPDATE_DEPARTMENT",
-        entity: "department",
-        actor: dept.manager ?? { id: "u-1", name: "System Admin" },
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        before: { description: "Previous revision details" },
-        after: { description: dept.description || "Updated description" },
-      },
-    ]);
-  };
+  }, [canViewAudit, deptKey]);
 
   useEffect(() => {
-    loadDepartmentData();
-  }, [deptKey]);
+    void loadDepartmentData();
+  }, [loadDepartmentData]);
 
-  const loadTrash = async () => {
-    setTrashLoading(true);
-    try {
-      const res = await getTrash({ departmentId: department?.id });
-      setTrashItems(res.data || []);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to load trash items");
-    } finally {
-      setTrashLoading(false);
-    }
-  };
-
-  const handleOpenTrash = () => {
-    setTrashModalOpen(true);
-    loadTrash();
-  };
-
-  const handleRestore = async (item: TrashItem) => {
-    try {
-      await restoreTrash(item.entity, item.id);
-      toast.success(`Restored ${item.title || item.name || item.entity}`);
-      loadTrash();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to restore record");
-    }
-  };
-
-  const handlePurge = async (item: TrashItem) => {
-    if (!window.confirm("Permanently delete this record? This cannot be undone.")) return;
-    try {
-      await purgeTrash(item.entity, item.id);
-      toast.success("Record permanently deleted");
-      loadTrash();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to purge record");
-    }
-  };
+  const modules = useMemo(() => {
+    if (!department) return [];
+    return accessibleModules.filter((module) => {
+      const relation = module.department;
+      if (!relation) return false;
+      const key = typeof relation === "string" ? relation : relation.key;
+      return key?.toLowerCase() === department.key.toLowerCase();
+    });
+  }, [accessibleModules, department]);
 
   const basePath = tenantSlug ? `/${tenantSlug}` : "";
 
@@ -286,7 +185,8 @@ export default function DepartmentDetailPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Department Not Found</AlertTitle>
           <AlertDescription>
-            {error || `The department "/departments/${deptKey}" does not exist or you do not have permission.`}
+            {error ||
+              `The department "/departments/${deptKey}" does not exist or you do not have permission.`}
           </AlertDescription>
         </Alert>
       </div>
@@ -296,7 +196,7 @@ export default function DepartmentDetailPage() {
   const initials = department.manager?.name
     ? department.manager.name
         .split(" ")
-        .map((n) => n[0])
+        .map((name) => name[0])
         .slice(0, 2)
         .join("")
         .toUpperCase()
@@ -304,7 +204,6 @@ export default function DepartmentDetailPage() {
 
   return (
     <div className="space-y-6 p-6 max-w-7xl mx-auto">
-      {/* Back button */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" asChild>
           <Link href={`${basePath}/departments`}>
@@ -313,7 +212,6 @@ export default function DepartmentDetailPage() {
           </Link>
         </Button>
 
-        {/* Tenant Admin Actions */}
         {isTenantAdmin && (
           <div className="flex items-center gap-2">
             <Button
@@ -332,15 +230,16 @@ export default function DepartmentDetailPage() {
               </Link>
             </Button>
 
-            <Button variant="outline" size="sm" onClick={handleOpenTrash}>
-              <Trash2 className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-              View trash
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`${basePath}/settings/trash`}>
+                <Trash2 className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                View trash
+              </Link>
             </Button>
           </div>
         )}
       </div>
 
-      {/* Department Header */}
       <Card className="border-l-4 border-l-primary shadow-sm">
         <CardHeader className="p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -386,7 +285,6 @@ export default function DepartmentDetailPage() {
           </div>
         </CardHeader>
 
-        {/* Aggregate metric chips */}
         <CardContent className="p-6 pt-0 border-t bg-muted/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div className="py-2">
             <div className="text-2xl font-bold text-foreground">
@@ -415,7 +313,6 @@ export default function DepartmentDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Provisioned Modules Grid */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -441,7 +338,7 @@ export default function DepartmentDetailPage() {
         {modules.length === 0 ? (
           <Card className="p-8 text-center border-dashed">
             <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <h3 className="font-semibold text-sm">No modules provisioned yet</h3>
+            <h3 className="font-semibold text-sm">No modules available yet</h3>
             <p className="text-xs text-muted-foreground mt-1 mb-4">
               Attach template modules to enable pipelines, data tables, or documents.
             </p>
@@ -454,33 +351,32 @@ export default function DepartmentDetailPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {modules.map((mod) => (
+            {modules.map((module) => (
               <Card
-                key={mod.id || mod.key}
+                key={module.id || module.key}
                 className="flex flex-col justify-between hover:border-primary/50 transition-colors"
               >
                 <CardHeader className="p-4 pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <CardTitle className="text-base font-semibold">{mod.name}</CardTitle>
+                      <CardTitle className="text-base font-semibold">
+                        {module.name}
+                      </CardTitle>
                       <CardDescription className="text-xs font-mono mt-1">
-                        {mod.path || `/dept/${deptKey}/${mod.key}`}
+                        {module.path}
                       </CardDescription>
                     </div>
-                    <Badge variant="outline" className="text-[10px]">
-                      {mod.type}
-                    </Badge>
+                    {module.type && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {module.type}
+                      </Badge>
+                    )}
                   </div>
-                  {mod.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
-                      {mod.description}
-                    </p>
-                  )}
                 </CardHeader>
 
                 <CardContent className="p-4 pt-0 mt-auto">
                   <Button variant="secondary" size="sm" className="w-full" asChild>
-                    <Link href={mod.path || `/dept/${deptKey}/${mod.key}`}>
+                    <Link href={module.path}>
                       Open Module
                       <ArrowUpRight className="h-3.5 w-3.5 ml-1.5" />
                     </Link>
@@ -492,9 +388,7 @@ export default function DepartmentDetailPage() {
         )}
       </div>
 
-      {/* Two-column layout: Department Members & Recent Audit Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Members List */}
         <Card>
           <CardHeader className="p-5 pb-3 border-b flex flex-row items-center justify-between">
             <div className="flex items-center gap-2">
@@ -502,13 +396,12 @@ export default function DepartmentDetailPage() {
               <CardTitle className="text-base font-semibold">Department Members</CardTitle>
             </div>
             <span className="text-xs text-muted-foreground">
-              {format.number(department.counts?.members ?? members.length)} user(s)
+              {format.number(department.counts?.members ?? 0)} user(s)
             </span>
           </CardHeader>
           <CardContent className="p-0">
             {department.manager ? (
               <div className="divide-y">
-                {/* Manager row */}
                 <div className="p-3.5 px-5 flex items-center justify-between hover:bg-muted/20">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 text-xs">
@@ -524,7 +417,6 @@ export default function DepartmentDetailPage() {
                   </Badge>
                 </div>
 
-                {/* Additional members info */}
                 <div className="p-4 text-center text-xs text-muted-foreground bg-muted/10">
                   Manage individual assignments and team roles in workspace settings.
                 </div>
@@ -537,78 +429,82 @@ export default function DepartmentDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Audit Activity */}
-        <Card>
-          <CardHeader className="p-5 pb-3 border-b flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <History className="h-4 w-4 text-primary" />
-              <CardTitle className="text-base font-semibold">Recent Audit Activity</CardTitle>
-            </div>
-            <span className="text-xs text-muted-foreground">Last 20 events</span>
-          </CardHeader>
-          <CardContent className="p-0">
-            {auditLogs.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">
-                No recent activity recorded for this department.
+        {canViewAudit && (
+          <Card>
+            <CardHeader className="p-5 pb-3 border-b flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" />
+                <CardTitle className="text-base font-semibold">Recent Audit Activity</CardTitle>
               </div>
-            ) : (
-              <div className="divide-y max-h-[360px] overflow-y-auto">
-                {auditLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-3 px-5 flex items-center justify-between hover:bg-muted/20 text-xs"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0">
-                          {log.action}
-                        </Badge>
-                        <span className="font-medium text-foreground">
-                          {log.actor?.name || "System"}
-                        </span>
+              <span className="text-xs text-muted-foreground">Last 20 events</span>
+            </CardHeader>
+            <CardContent className="p-0">
+              {auditLogs.length === 0 ? (
+                <div className="p-8 text-center text-xs text-muted-foreground">
+                  No recent activity recorded for this department.
+                </div>
+              ) : (
+                <div className="divide-y max-h-[360px] overflow-y-auto">
+                  {auditLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-3 px-5 flex items-center justify-between hover:bg-muted/20 text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="secondary"
+                            className="font-mono text-[10px] px-1.5 py-0"
+                          >
+                            {log.action}
+                          </Badge>
+                          <span className="font-medium text-foreground">
+                            {log.actor?.name || "System"}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {format.dateTime(log.createdAt)}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(log.createdAt).toLocaleString()}
-                      </div>
-                    </div>
 
-                    {(log.before || log.after) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-primary"
-                        onClick={() => setSelectedAuditLog(log)}
-                      >
-                        View Diff
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      {(log.before || log.after) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-primary"
+                          onClick={() => setSelectedAuditLog(log)}
+                        >
+                          View Diff
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Standalone Attach Modules Modal */}
       <AttachModulesModal
         open={attachModalOpen}
         onClose={() => setAttachModalOpen(false)}
         deptId={department.id}
         deptKey={department.key}
         onProvisioned={() => {
-          loadDepartmentData();
+          void loadDepartmentData();
         }}
       />
 
-      {/* Audit Diff Modal */}
       {selectedAuditLog && (
         <Modal
           open={Boolean(selectedAuditLog)}
           onClose={() => setSelectedAuditLog(null)}
           title={`Audit Diff: ${selectedAuditLog.action}`}
-          description={`Recorded on ${new Date(selectedAuditLog.createdAt).toLocaleString()} by ${selectedAuditLog.actor?.name || "System"}`}
+          description={`Recorded on ${format.dateTime(selectedAuditLog.createdAt)} by ${
+            selectedAuditLog.actor?.name || "System"
+          }`}
           className="max-w-xl"
         >
           <div className="py-2 space-y-4">
@@ -624,94 +520,6 @@ export default function DepartmentDetailPage() {
           </div>
         </Modal>
       )}
-
-      {/* Trash View Modal */}
-      <Modal
-        open={trashModalOpen}
-        onClose={() => setTrashModalOpen(false)}
-        title="Department Trash"
-        description="Review, restore, or permanently purge soft-deleted business records."
-        className="max-w-2xl"
-      >
-        <div className="py-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {trashItems.length} soft-deleted record(s)
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadTrash}
-              disabled={trashLoading}
-              className="h-7 text-xs"
-            >
-              <RefreshCw className={`h-3 w-3 mr-1 ${trashLoading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </div>
-
-          {trashLoading ? (
-            <div className="space-y-2 py-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : trashItems.length === 0 ? (
-            <div className="p-8 text-center text-xs text-muted-foreground border rounded-md">
-              Trash is empty. No deleted records found.
-            </div>
-          ) : (
-            <div className="border rounded-md divide-y max-h-[50vh] overflow-y-auto">
-              {trashItems.map((item) => (
-                <div
-                  key={`${item.entity}-${item.id}`}
-                  className="p-3 flex items-center justify-between text-xs hover:bg-muted/20"
-                >
-                  <div className="space-y-0.5">
-                    <div className="font-medium text-foreground">
-                      {item.title || item.name || item.id}
-                    </div>
-                    <div className="text-muted-foreground flex items-center gap-2 text-[11px]">
-                      <Badge variant="outline" className="text-[10px] uppercase font-mono">
-                        {item.entity}
-                      </Badge>
-                      <span>
-                        Deleted {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : ""}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => handleRestore(item)}
-                    >
-                      <RotateCcw className="h-3 w-3 mr-1" />
-                      Restore
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => handlePurge(item)}
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Purge
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex justify-end pt-2 border-t">
-            <Button variant="outline" size="sm" onClick={() => setTrashModalOpen(false)}>
-              Close
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

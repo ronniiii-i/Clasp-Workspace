@@ -248,6 +248,30 @@ describe("DataTableRenderer", () => {
     );
   });
 
+  it("shows the export control only when the entity is exportable", () => {
+    const exportable = buildEntityMeta({ exportable: true });
+    const first = renderRenderer(<DataTableRenderer definition={definition} />, {
+      definition,
+      entityMeta: exportable,
+      actions: ["VIEW"],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Export CSV" }),
+    ).toBeInTheDocument();
+    first.unmount();
+
+    renderRenderer(<DataTableRenderer definition={definition} />, {
+      definition,
+      entityMeta: buildEntityMeta(),
+      actions: ["VIEW"],
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Export CSV" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("collapses row actions into a touch menu on coarse pointers", () => {
     mockMediaQuery.mockImplementation(
       (query: string) => query === "(pointer: coarse)",

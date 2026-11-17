@@ -104,6 +104,44 @@ describe('Sidebar', () => {
     expect(screen.queryByText('User Management')).not.toBeInTheDocument();
   });
 
+  describe('administration links', () => {
+    it('shows the audit log link to tenant administrators', async () => {
+      setSession(
+        buildUser({
+          role: {
+            id: 'role-admin',
+            name: 'Tenant Admin',
+            slug: 'tenant_admin',
+            isTenantAdmin: true,
+          },
+        }),
+      );
+
+      render(<Sidebar />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Audit Log')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('link', { name: /Audit Log/ })).toHaveAttribute(
+        'href',
+        '/audit-log',
+      );
+    });
+
+    it('hides the audit log link from non-administrators', async () => {
+      setSession(buildUser({ role: 'STAFF' }), [
+        buildModule('dashboard', 'Dashboard', '/dashboard', 'General'),
+      ]);
+
+      render(<Sidebar />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Audit Log')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Role+ indicator', () => {
     it('is hidden for a plain role user', async () => {
       setSession(buildUser({ role: 'STAFF', roleEnhanced: false }));

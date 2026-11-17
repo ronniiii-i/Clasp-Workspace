@@ -72,7 +72,8 @@ const ADMIN_LINKS = [
     901,
     "Administration",
   ),
-  staticModule("Settings", "/settings", "settings", 902, "Administration"),
+  staticModule("Audit Log", "/audit-log", "history", 902, "Administration"),
+  staticModule("Settings", "/settings", "settings", 903, "Administration"),
 ];
 
 /**

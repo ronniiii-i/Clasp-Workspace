@@ -6,9 +6,11 @@ import { ArrowUpRight, FolderKanban, Settings, Users, CheckSquare, CalendarClock
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth-store";
 import { useWorkspaceFormat } from "@/hooks/useWorkspaceFormat";
+import { isTenantAdminRole } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { DepartmentOverview } from "@/services/departments";
 
 export interface DepartmentCardProps {
@@ -22,11 +24,7 @@ export function DepartmentCard({ department, className }: DepartmentCardProps) {
   const format = useWorkspaceFormat();
   const user = useAuthStore((state) => state.user);
 
-  const isTenantAdmin =
-    user?.role === "TENANT_ADMIN" ||
-    user?.role === "tenant_admin" ||
-    (typeof user?.role === "object" &&
-      (user?.role?.slug === "tenant_admin" || Boolean(user?.role?.isTenantAdmin)));
+  const isTenantAdmin = isTenantAdminRole(user?.role);
 
   const initials = department.manager?.name
     ? department.manager.name
@@ -42,7 +40,12 @@ export function DepartmentCard({ department, className }: DepartmentCardProps) {
   const manageUrl = `${basePath}/settings/departments`;
 
   return (
-    <Card className="flex flex-col justify-between hover:shadow-md transition-shadow">
+    <Card
+      className={cn(
+        "flex flex-col justify-between hover:shadow-md transition-shadow",
+        className,
+      )}
+    >
       <CardHeader className="p-5 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1 min-w-0">

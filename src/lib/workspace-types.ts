@@ -224,6 +224,8 @@ export interface EntityMeta {
   readOnly: boolean;
   softDelete?: boolean;
   reassignable?: boolean;
+  /** When true the entity supports CSV export through `GET .../export`. */
+  exportable?: boolean;
 }
 
 export interface ModuleDefinition {
@@ -275,11 +277,16 @@ export interface RecordFilter {
   value?: unknown;
 }
 
+export interface RecordSort {
+  field: string;
+  dir: "asc" | "desc";
+}
+
 export interface RecordsQuery {
   search?: string;
   page?: number;
   pageSize?: number;
-  sort?: { field: string; dir: "asc" | "desc" };
+  sort?: RecordSort;
   filters?: RecordFilter[];
   include?: string[];
 }

@@ -157,7 +157,9 @@ export function moduleLocation(definition: {
 
   const match = /^\/dept\/([^/?#]+)\/([^/?#]+)/.exec(definition.path);
   return {
-    deptKey: match?.[1] ?? "",
+    // Global (departmentless) modules are served under the reserved
+    // `workspace` pseudo-department key.
+    deptKey: match?.[1] ?? "workspace",
     moduleKey: definition.key || match?.[2] || "",
   };
 }
