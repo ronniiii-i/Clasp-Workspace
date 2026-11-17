@@ -27,7 +27,10 @@ function attachConsoleGuards(page: Page, errors: string[]) {
     if (msg.type() !== 'error') return;
     const text = msg.text();
     if (isKnownNoise(text)) return;
-    errors.push(`console.error: ${text}`);
+    const location = msg.location().url;
+    errors.push(
+      `console.error: ${text}${location ? ` @ ${location}` : ''}`,
+    );
   });
   page.on('pageerror', (err) => {
     errors.push(`pageerror: ${err.message || String(err)}`);
@@ -128,20 +131,33 @@ test.describe('Command palette and notifications', () => {
 
     await signIn(page);
 
-    const trigger = page.locator(
-      'header button[aria-label="Open command palette"]:visible',
-    );
-    await expect(trigger).toHaveCount(1);
-    await trigger.click();
+    // The mobile shell hides the desktop search button; open the palette with
+    // the keyboard shortcut instead (see the Stage 9 responsive shell). Wait
+    // for hydration so the document keydown listener is attached.
+    await expect(
+      page.locator('header button[aria-label="Notifications"]:visible').first(),
+    ).toBeVisible();
+    await page.keyboard.press('ControlOrMeta+k');
 
     const dialog = page.getByRole('dialog', { name: 'Command palette' });
     await expect(dialog).toBeVisible();
 
-    const box = await dialog.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.width).toBeLessThanOrEqual(390);
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    // cmdk's Radix dialog animates into place, so the first bounding box can
+    // be a mid-animation frame. Poll until the final geometry settles within
+    // the 390px mobile viewport instead of measuring a transient frame.
+    await expect
+      .poll(
+        async () => {
+          const box = await dialog.boundingBox();
+          if (!box) return Number.POSITIVE_INFINITY;
+          return Math.max(0, -box.x, box.width - 390, box.x + box.width - 390);
+        },
+        {
+          timeout: 5_000,
+          message: 'command palette fits the 390px mobile viewport',
+        },
+      )
+      .toBe(0);
 
     const input = page.getByTestId('command-palette-input');
     await input.fill('piper');
