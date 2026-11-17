@@ -42,25 +42,33 @@ export default function CreateWorkspacePage() {
       setSlugAvailable(null);
       return;
     }
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
         const apiBase = process.env.NEXT_PUBLIC_API || "http://localhost:3030";
         const response = await fetch(
           `${apiBase}/public/workspaces/${encodeURIComponent(trimmed)}`,
+          { signal: controller.signal },
         );
         if (response.status === 404) {
           setSlugAvailable(true);
         } else if (response.ok) {
-          setSlugAvailable(false);
+          const data = await response.json().catch(() => null);
+          setSlugAvailable(data?.workspace?.slug !== trimmed);
         } else {
           // Availability cannot be determined when the API is unavailable.
           setSlugAvailable(null);
         }
       } catch {
-        setSlugAvailable(null);
+        if (!controller.signal.aborted) {
+          setSlugAvailable(null);
+        }
       }
     }, 400);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [slug]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
