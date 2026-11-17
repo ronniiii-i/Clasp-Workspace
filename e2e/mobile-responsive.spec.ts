@@ -117,7 +117,9 @@ test.describe('Responsive shell', () => {
     // Staff navigation keeps the dashboard and their modules but never admin
     // destinations.
     await trigger.click();
-    await expect(sidebar.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+    await expect(
+      sidebar.getByRole('link', { name: 'Dashboard', exact: true }),
+    ).toBeVisible();
     await expect(
       sidebar.getByRole('link', { name: 'Settings', exact: true }),
     ).toHaveCount(0);
