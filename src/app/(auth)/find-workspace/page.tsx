@@ -13,6 +13,12 @@ export default function AuthGatewayPage() {
   const [loading, setLoading] = useState(false);
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000";
   const protocol = process.env.NEXT_PUBLIC_ROOT_PROTOCOL || "http";
+  const testLoginEnabled = process.env.NEXT_PUBLIC_TEST_LOGIN_ENABLED === "true";
+
+  function handleProceedAsAcme() {
+    localStorage.setItem("clasp_last_workspace", "acme");
+    window.location.href = `${protocol}://acme.${rootDomain}/login`;
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,6 +87,16 @@ export default function AuthGatewayPage() {
               </Link>
             </div>
           </form>
+          {testLoginEnabled && (
+            <div className="mt-6 flex flex-col gap-3 border-t pt-5">
+              <p className="text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Testing shortcuts
+              </p>
+              <Button type="button" variant="outline" onClick={handleProceedAsAcme}>
+                Proceed as Acme
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
