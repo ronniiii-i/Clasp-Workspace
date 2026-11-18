@@ -18,13 +18,16 @@ const ThemeToggle = () => {
 
   return (
     <button
+      type="button"
       onClick={() => setTheme(currentTheme === "dark" ? "light" : "dark")}
-      className="p-2 rounded-md text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
+      aria-label={currentTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      aria-pressed={currentTheme === "dark"}
+      className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {currentTheme === "dark" ? (
-        <SunIcon className="h-5 w-5 text-yellow-300" />
+        <SunIcon className="h-5 w-5 text-yellow-300" aria-hidden="true" />
       ) : (
-        <MoonIcon className="h-5 w-5 text-gray-600" />
+        <MoonIcon className="h-5 w-5 text-foreground" aria-hidden="true" />
       )}
     </button>
   );

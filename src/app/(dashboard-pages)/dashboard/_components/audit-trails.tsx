@@ -41,8 +41,8 @@ export function AuditTrails({ logs }: AuditLogProps) {
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
                       log.status === "success"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
+                        ? "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300"
+                        : "bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300"
                     }`}
                   >
                     {log.status}

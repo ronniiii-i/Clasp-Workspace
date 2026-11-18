@@ -25,9 +25,9 @@ export function TrainingManagement({ trainings }: TrainingProps) {
                 </p>
               </div>
               <span className={`px-2 py-1 text-xs rounded-full ${
-                training.status === 'completed' ? 'bg-green-100 text-green-800' :
-                training.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                'bg-yellow-100 text-yellow-800'
+                training.status === 'completed' ? 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300' :
+                training.status === 'in-progress' ? 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300' :
+                'bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-300'
               }`}>
                 {training.status}
               </span>

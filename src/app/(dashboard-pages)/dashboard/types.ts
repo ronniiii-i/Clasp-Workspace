@@ -5,6 +5,7 @@ export type DashboardData = {
   metrics: Metric[];
   departmentPerformance?: DepartmentPerformance[];
   teamMetric?: TeamMetric[];
+  teamMetrics?: TeamMetric[];
   personalMetrics?: PersonalMetric[];
   auditLog?: AuditLogEntry[];
   tasks?: Task[];
@@ -105,6 +106,9 @@ export interface Task {
   status: "not-started" | "in-progress" | "completed";
   progress?: number;
   project?: string;
+  priority?: "low" | "medium" | "high";
+  assigneeId?: string;
+  assigneeName?: string;
 }
 
 export interface SystemAlert {
@@ -195,6 +199,8 @@ export interface Ticket {
   priority: "low" | "medium" | "high";
   status: "open" | "pending" | "resolved";
   createdAt: string;
+  assigneeId?: string;
+  assigneeName?: string;
 }
 
 export interface RevenueData {

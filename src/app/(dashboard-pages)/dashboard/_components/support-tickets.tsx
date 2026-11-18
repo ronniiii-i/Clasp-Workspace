@@ -52,10 +52,10 @@ function TicketList({ tickets }: { tickets: Ticket[] }) {
             <span
               className={`px-2 py-1 text-xs rounded-full ${
                 ticket.priority === "high"
-                  ? "bg-red-100 text-red-800"
+                  ? "bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300"
                   : ticket.priority === "medium"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : "bg-green-100 text-green-800"
+                  ? "bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-300"
+                  : "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300"
               }`}
             >
               {ticket.priority}

@@ -37,7 +37,7 @@ export function TaskProgress({ tasks }: { tasks: Task[] }) {
                     ? "text-green-500"
                     : task.status === "in-progress"
                     ? "text-yellow-500"
-                    : "text-gray-500"
+                    : "text-muted-foreground"
                 }`}
               >
                 {task.status}

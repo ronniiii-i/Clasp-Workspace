@@ -18,10 +18,10 @@ import { Deal } from "../types";
 
 export function SalesPipeline({ deals }: { deals: Deal[] }) {
   const stages = [
-    { id: "prospect", title: "Prospect", color: "bg-blue-100" },
-    { id: "qualified", title: "Qualified", color: "bg-purple-100" },
-    { id: "negotiation", title: "Negotiation", color: "bg-yellow-100" },
-    { id: "closed", title: "Closed", color: "bg-green-100" },
+    { id: "prospect", title: "Prospect", color: "bg-blue-100 dark:bg-blue-950" },
+    { id: "qualified", title: "Qualified", color: "bg-purple-100 dark:bg-purple-950" },
+    { id: "negotiation", title: "Negotiation", color: "bg-yellow-100 dark:bg-yellow-950" },
+    { id: "closed", title: "Closed", color: "bg-green-100 dark:bg-green-950" },
   ];
 
   return (
@@ -45,7 +45,7 @@ export function SalesPipeline({ deals }: { deals: Deal[] }) {
                   .map((deal) => (
                     <div
                       key={deal.id}
-                      className="p-3 border rounded-lg mb-2 bg-white"
+                      className="p-3 border rounded-lg mb-2 bg-card"
                     >
                       <p className="font-medium">{deal.name}</p>
                       <p className="text-sm">${deal.value.toLocaleString()}</p>

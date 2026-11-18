@@ -2,21 +2,49 @@
 
 import { useDashboardData } from "../_hooks/use-dashboard-data";
 import { DashboardSkeleton } from "./skeleton";
+import { DashboardEmpty, DashboardError } from "./dashboard-states";
 import { OrganizationMetrics } from "./organization-metrics";
 import { DepartmentComparisonChart } from "./department-comparison-chart";
 import { AuditLog } from "./audit-log";
 import { PendingApprovals } from "./pending-approvals";
 import { SystemAlerts } from "./system-alerts";
+import { ModuleShortcuts } from "./module-shortcut";
 
 export function AdminDashboard() {
-  const { data, isLoading } = useDashboardData({ scope: "organization" });
+  const { data, isLoading, isError, error, refetch, isEmpty } =
+    useDashboardData({ scope: "organization" });
 
   if (isLoading) return <DashboardSkeleton />;
-  if (!data) return <div>No data available</div>;
+  if (isError) {
+    return (
+      <DashboardError
+        message={error?.message}
+        onRetry={() => {
+          void refetch();
+        }}
+      />
+    );
+  }
+  if (!data || isEmpty) {
+    return (
+      <DashboardEmpty
+        title="No organization data yet"
+        description="Seed your tenant (departments, users, deals) to populate the admin dashboard."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+      <ModuleShortcuts
+        items={[
+          { href: "/departments", label: "Departments" },
+          { href: "/user-management", label: "User management" },
+          { href: "/audit-log", label: "Audit log" },
+          { keywords: ["deal"], label: "Deals" },
+        ]}
+      />
 
       {/* Global KPIs */}
       <OrganizationMetrics metrics={data.metrics} />
